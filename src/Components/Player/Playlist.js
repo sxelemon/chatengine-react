@@ -7,20 +7,11 @@
 
 import React from 'react';
 import * as ReactDOM from 'react-dom';
-import classNames from 'classnames';
 import { getMedia, openMedia } from '../../Utils/Message';
-import { borderStyle } from '../Theme';
-import withStyles from '@material-ui/core/styles/withStyles';
+import { SCROLL_PRECISION } from '../../Constants';
 import PlayerStore from '../../Stores/PlayerStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './Playlist.css';
-
-const styles = theme => ({
-    root: {
-        background: theme.palette.type === 'dark' ? theme.palette.background.default : '#FFFFFF'
-    },
-    ...borderStyle(theme)
-});
 
 class Playlist extends React.Component {
     constructor(props) {
@@ -74,10 +65,10 @@ class Playlist extends React.Component {
     }
 
     componentWillUnmount() {
-        PlayerStore.removeListener('clientUpdateMediaActive', this.onClientUpdateMediaActive);
-        PlayerStore.removeListener('clientUpdateMediaPlaylist', this.onClientUpdateMediaPlaylist);
-        PlayerStore.removeListener('clientUpdateMediaPlaylistLoading', this.onClientUpdateMediaPlaylistLoading);
-        PlayerStore.removeListener('clientUpdateMediaTitleMouseOver', this.onClientUpdateMediaTitleMouseOver);
+        PlayerStore.off('clientUpdateMediaActive', this.onClientUpdateMediaActive);
+        PlayerStore.off('clientUpdateMediaPlaylist', this.onClientUpdateMediaPlaylist);
+        PlayerStore.off('clientUpdateMediaPlaylistLoading', this.onClientUpdateMediaPlaylistLoading);
+        PlayerStore.off('clientUpdateMediaTitleMouseOver', this.onClientUpdateMediaTitleMouseOver);
     }
 
     onClientUpdateMediaTitleMouseOver = update => {
@@ -176,11 +167,11 @@ class Playlist extends React.Component {
         const list = this.listRef.current;
         if (!list) return;
 
-        if (list.scrollTop === 0) {
+        if (list.scrollTop <= SCROLL_PRECISION) {
             TdLibController.clientUpdate({
                 '@type': 'clientUpdateMediaPlaylistNext'
             });
-        } else if (list.scrollHeight === list.scrollTop + list.offsetHeight) {
+        } else if (list.scrollTop + list.offsetHeight >= list.scrollHeight - SCROLL_PRECISION) {
             TdLibController.clientUpdate({
                 '@type': 'clientUpdateMediaPlaylistPrev'
             });
@@ -202,7 +193,7 @@ class Playlist extends React.Component {
 
         return (
             <div className='playlist'>
-                <div className={classNames('playlist-wrapper', classes.root, classes.borderColor)}>
+                <div className='playlist-wrapper'>
                     <div
                         ref={this.listRef}
                         className='playlist-items'
@@ -224,4 +215,4 @@ class Playlist extends React.Component {
     }
 }
 
-export default withStyles(styles)(Playlist);
+export default Playlist;

@@ -7,48 +7,25 @@
 
 import React from 'react';
 import classNames from 'classnames';
-import { compose } from 'recompose';
-import withStyles from '@material-ui/core/styles/withStyles';
+import { compose } from '../../Utils/HOC';
+import withTheme from '@material-ui/core/styles/withTheme';
 import { withTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import IconButton from '@material-ui/core/IconButton';
-import InsertEmoticonIcon from '@material-ui/icons/InsertEmoticon';
+import InsertEmoticonIcon from '../../Assets/Icons/Smile';
 import { Picker as EmojiPicker } from 'emoji-mart';
+// import { NimblePicker as EmojiPicker } from 'emoji-mart';
+// import data from 'emoji-mart/data/messenger.json'
 import StickerPreview from './StickerPreview';
 import StickersPicker from './StickersPicker';
 import { isAppleDevice } from '../../Utils/Common';
-import { loadStickerThumbnailContent, loadStickerSetContent } from '../../Utils/File';
+import { loadStickerThumbnailContent, loadStickerSetContent, loadRecentStickersContent } from '../../Utils/File';
 import { EMOJI_PICKER_TIMEOUT_MS } from '../../Constants';
 import ApplicationStore from '../../Stores/ApplicationStore';
 import FileStore from '../../Stores/FileStore';
 import LocalizationStore from '../../Stores/LocalizationStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './EmojiPickerButton.css';
-
-const styles = theme => ({
-    iconButton: {
-        margin: '8px 0px'
-    },
-    headerButton: {
-        borderRadius: 0,
-        flex: '50%'
-    },
-    pickerRoot: {
-        zIndex: theme.zIndex.modal,
-        width: 338,
-        overflowX: 'hidden',
-        backgroundColor: theme.palette.background.paper,
-        color: theme.palette.text.primary,
-        borderRadius: theme.shape.borderRadius,
-        boxShadow: theme.shadows[8],
-        position: 'absolute',
-        bottom: 80,
-        display: 'none'
-    },
-    pickerRootOpened: {
-        display: 'block'
-    }
-});
 
 class EmojiPickerButton extends React.Component {
     constructor(props) {
@@ -69,8 +46,8 @@ class EmojiPickerButton extends React.Component {
     }
 
     componentWillUnmount() {
-        ApplicationStore.removeListener('clientUpdateThemeChange', this.onClientUpdateChange);
-        LocalizationStore.removeListener('clientUpdateLanguageChange', this.onClientUpdateChange);
+        ApplicationStore.off('clientUpdateThemeChange', this.onClientUpdateChange);
+        LocalizationStore.off('clientUpdateLanguageChange', this.onClientUpdateChange);
     }
 
     onClientUpdateChange = update => {
@@ -89,6 +66,11 @@ class EmojiPickerButton extends React.Component {
 
     loadStickerSets = async () => {
         if (this.sets) return;
+
+        this.recent = await TdLibController.send({
+            '@type': 'getRecentStickers',
+            is_attached: false
+        });
 
         this.stickerSets = await TdLibController.send({
             '@type': 'getInstalledStickerSets',
@@ -110,6 +92,8 @@ class EmojiPickerButton extends React.Component {
         const node = this.stickersPickerRef.current;
 
         const store = FileStore.getStore();
+        loadRecentStickersContent(store, this.recent);
+
         const previewSets = this.sets.slice(0, 5).reverse();
         previewSets.forEach(x => {
             loadStickerSetContent(store, x);
@@ -146,6 +130,8 @@ class EmojiPickerButton extends React.Component {
     };
 
     handlePaperMouseLeave = () => {
+        // return;
+
         this.paperEnter = false;
         setTimeout(() => {
             this.tryClosePicker();
@@ -164,7 +150,7 @@ class EmojiPickerButton extends React.Component {
         const stickersPicker = this.stickersPickerRef.current;
         const { tab } = this.state;
 
-        stickersPicker.loadContent(this.stickerSets, this.sets);
+        stickersPicker.loadContent(this.recent, this.stickerSets, this.sets);
 
         this.setState({ tab: 1 });
         if (tab === 1) {
@@ -196,7 +182,7 @@ class EmojiPickerButton extends React.Component {
     };
 
     render() {
-        const { classes, theme, t } = this.props;
+        const { theme, t } = this.props;
         const { open, tab, sticker } = this.state;
 
         if (open && !this.picker) {
@@ -222,6 +208,7 @@ class EmojiPickerButton extends React.Component {
             this.picker = (
                 <EmojiPicker
                     ref={this.emojiPickerRef}
+                    // data={data}
                     set='apple'
                     showPreview={false}
                     showSkinTones={false}
@@ -250,26 +237,26 @@ class EmojiPickerButton extends React.Component {
                     href={theme.palette.type === 'dark' ? 'emoji-mart.dark.css' : 'emoji-mart.light.css'}
                 />
                 <IconButton
-                    className={classes.iconButton}
+                    className='inputbox-icon-button'
                     aria-label='Emoticon'
                     onMouseEnter={this.handleButtonMouseEnter}
                     onMouseLeave={this.handleButtonMouseLeave}>
                     <InsertEmoticonIcon />
                 </IconButton>
                 <div
-                    className={classNames(classes.pickerRoot, { [classes.pickerRootOpened]: open })}
+                    className={classNames('emoji-picker-root', { 'emoji-picker-root-opened': open })}
                     onMouseEnter={this.handlePaperMouseEnter}
                     onMouseLeave={this.handlePaperMouseLeave}>
                     <div className='emoji-picker-header'>
                         <Button
                             color={tab === 0 ? 'primary' : 'default'}
-                            className={classes.headerButton}
+                            className='emoji-picker-header-button'
                             onClick={this.handleEmojiClick}>
                             {t('Emoji')}
                         </Button>
                         <Button
                             color={tab === 1 ? 'primary' : 'default'}
-                            className={classes.headerButton}
+                            className='emoji-picker-header-button'
                             onClick={this.handleStickersClick}>
                             {t('Stickers')}
                         </Button>
@@ -286,8 +273,8 @@ class EmojiPickerButton extends React.Component {
 }
 
 const enhance = compose(
-    withStyles(styles, { withTheme: true }),
-    withTranslation()
+    withTranslation(),
+    withTheme
 );
 
 export default enhance(EmojiPickerButton);

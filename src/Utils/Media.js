@@ -5,15 +5,74 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { THUMBNAIL_BLURRED_SIZE } from '../Constants';
+import { THUMBNAIL_BLURRED_SIZE_90 } from '../Constants';
+import MessageStore from '../Stores/MessageStore';
 
-function isBlurredThumbnail(thumbnail, blurredSize = THUMBNAIL_BLURRED_SIZE) {
-    if (!thumbnail) return false;
+export function getCallTitle(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return null;
 
-    return Math.max(thumbnail.width, thumbnail.height) <= blurredSize;
+    const { content, is_outgoing } = message;
+    if (content['@type'] !== 'messageCall') return null;
+
+    const { discard_reason, duration } = content;
+    if (is_outgoing) {
+        return discard_reason['@type'] === 'callDiscardReasonMissed' ? 'Cancelled Call' : 'Outgoing Call';
+    } else if (discard_reason['@type'] === 'callDiscardReasonMissed') {
+        return 'Missed Call';
+    } else if (discard_reason['@type'] === 'callDiscardReasonDeclined') {
+        return 'Declined Call';
+    }
+
+    return 'Incoming Call';
 }
 
-function getAudioTitle(audio) {
+export function isEditedMedia(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return;
+
+    const { content } = message;
+    switch (content['@type']) {
+        case 'messageAnimation': {
+            return true;
+        }
+        case 'messageAudio': {
+            return true;
+        }
+        case 'messageDocument': {
+            return true;
+        }
+        case 'messagePhoto': {
+            return true;
+        }
+        case 'messageVideo': {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+export function isValidAnimatedSticker(sticker, chatId, messageId) {
+    if (!sticker) return false;
+    if (!sticker.is_animated) return false;
+
+    const message = MessageStore.get(chatId, messageId);
+    if (message) {
+        const { sending_state } = message;
+        if (sending_state && !sticker.set_id) return false;
+    }
+
+    return true;
+}
+
+export function isBlurredThumbnail(thumbnail, blurredSize = THUMBNAIL_BLURRED_SIZE_90) {
+    if (!thumbnail) return false;
+
+    return Math.max(thumbnail.width, thumbnail.height) < blurredSize;
+}
+
+export function getAudioTitle(audio) {
     if (!audio) return null;
 
     const { file_name, title, performer } = audio;
@@ -25,11 +84,30 @@ function getAudioTitle(audio) {
         : file_name;
 }
 
-function getStickers(sets) {
+export function getAudioShortTitle(audio) {
+    if (!audio) return null;
+
+    const { file_name, title, performer } = audio;
+    const trimmedTitle = title ? title.trim() : '';
+    const trimmedPerformer = performer ? performer.trim() : '';
+
+    return trimmedTitle || trimmedPerformer ? `${trimmedPerformer || 'Unknown Artist'}` : file_name;
+}
+
+export function getAudioSubtitle(audio) {
+    if (!audio) return null;
+
+    const { title } = audio;
+    const trimmedTitle = title ? title.trim() : '';
+
+    return trimmedTitle || 'Unknown Track';
+}
+
+export function getStickers(sets) {
     return sets.reduce((stickers, set) => stickers.concat(set.stickers), []);
 }
 
-function getNeighborStickersFromSets(sticker, sets, stickersPerRow) {
+export function getNeighborStickersFromSets(sticker, sets, stickersPerRow) {
     const result = [];
     const [row, column] = toRowColumn(sticker, sets, stickersPerRow);
     if (row === -1) return [];
@@ -181,4 +259,197 @@ function toIndex(row, column, sets, stickersPerRow) {
     return index;
 }
 
-export { getAudioTitle, getNeighborStickersFromSets, getStickers, isBlurredThumbnail };
+function getInputMediaThumbnail(thumbnail) {
+    if (!thumbnail) return null;
+
+    const { photo, width, height } = thumbnail;
+    if (!photo) return null;
+
+    return {
+        '@type': 'inputThumbnail',
+        thumbnail: {
+            '@type': 'inputFileId',
+            id: photo.id
+        },
+        width,
+        height
+    };
+}
+
+function getInputMediaCaption(text) {
+    if (!text) return null;
+
+    return {
+        '@type': 'formattedText',
+        text: text,
+        entities: null
+    };
+}
+
+export function getInputMediaContent(media, text) {
+    if (!media) return null;
+
+    switch (media['@type']) {
+        case 'animation': {
+            const { animation: file, thumbnail, width, height, duration } = media;
+
+            return {
+                '@type': 'inputMessageAnimation',
+                animation: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                duration,
+                width,
+                height,
+                caption: getInputMediaCaption(text)
+            };
+        }
+        case 'audio': {
+            const { audio: file, album_cover_thumbnail: thumbnail, title, performer, duration } = media;
+
+            return {
+                '@type': 'inputMessageAudio',
+                audio: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                album_cover_thumbnail: getInputMediaThumbnail(thumbnail),
+                duration,
+                title,
+                performer,
+                caption: getInputMediaCaption(text)
+            };
+        }
+        case 'contact': {
+            return {
+                '@type': 'inputMessageContact',
+                contact: media
+            };
+        }
+        case 'document': {
+            const { document: file, thumbnail } = media;
+
+            return {
+                '@type': 'inputMessageDocument',
+                document: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                caption: getInputMediaCaption(text)
+            };
+        }
+        case 'game': {
+            return null;
+        }
+        case 'invoice': {
+            return null;
+        }
+        case 'location': {
+            return {
+                '@type': 'inputMessageLocation',
+                location: media,
+                live_period: 0
+            };
+        }
+        case 'photo': {
+            const { sizes } = media;
+            if (!sizes.length) return null;
+
+            const thumbnail = sizes[0];
+            const photo = sizes[sizes.length - 1];
+            if (!photo) return null;
+
+            const { photo: file, width, height } = photo;
+
+            return {
+                '@type': 'inputMessagePhoto',
+                photo: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                added_sticker_file_ids: [],
+                width,
+                height,
+                caption: getInputMediaCaption(text),
+                ttl: 0
+            };
+        }
+        case 'poll': {
+            return null;
+        }
+        case 'sticker': {
+            const { sticker: file, thumbnail, width, height } = media;
+
+            return {
+                '@type': 'inputMessageSticker',
+                sticker: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                width,
+                height,
+                caption: getInputMediaCaption(text)
+            };
+        }
+        case 'venue': {
+            return {
+                '@type': 'inputMessageVenue',
+                venue: media
+            };
+        }
+        case 'video': {
+            const { video: file, thumbnail, width, height, duration, supports_streaming } = media;
+
+            return {
+                '@type': 'inputMessageVideo',
+                video: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                added_sticker_file_ids: [],
+                duration,
+                width,
+                height,
+                supports_streaming,
+                caption: getInputMediaCaption(text),
+                ttl: 0
+            };
+        }
+        case 'videoNote': {
+            const { video: file, thumbnail, duration, length } = media;
+
+            return {
+                '@type': 'inputMessageVideoNote',
+                video: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                thumbnail: getInputMediaThumbnail(thumbnail),
+                duration,
+                length,
+                ttl: 0
+            };
+        }
+        case 'voiceNote': {
+            const { voice: file, duration, waveform } = media;
+
+            return {
+                '@type': 'inputMessageVideoNote',
+                voice_note: {
+                    '@type': 'inputFileId',
+                    id: file.id
+                },
+                duration,
+                waveform
+            };
+        }
+    }
+
+    return null;
+}

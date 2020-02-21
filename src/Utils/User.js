@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import dateFormat from 'dateformat';
+import dateFormat from '../Utils/Date';
 import { getLetters, getSize } from './Common';
 import { PROFILE_PHOTO_BIG_SIZE, PROFILE_PHOTO_SMALL_SIZE, SERVICE_NOTIFICATIONS_USER_ID } from '../Constants';
 import UserStore from '../Stores/UserStore';
@@ -101,40 +101,45 @@ function isUserOnline(user) {
     return status['@type'] === 'userStatusOnline' && type['@type'] !== 'userTypeBot';
 }
 
-function getUserFullName(user) {
+function getUserFullName(userId, user, t = k => k) {
+    user = UserStore.get(userId) || user;
     if (!user) return null;
-    if (!user.type) return null;
 
-    switch (user.type['@type']) {
+    const { type, first_name, last_name } = user;
+    if (!type) return null;
+
+    switch (type['@type']) {
         case 'userTypeBot':
         case 'userTypeRegular': {
-            if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
-            if (user.first_name) return user.first_name;
-            if (user.last_name) return user.last_name;
+            if (first_name && last_name) return `${first_name} ${last_name}`;
+            if (first_name) return first_name;
+            if (last_name) return last_name;
         }
         case 'userTypeDeleted':
         case 'userTypeUnknown': {
-            return 'Deleted account';
+            return t('HiddenName');
         }
     }
 
     return null;
 }
 
-function getUserShortName(userId) {
+function getUserShortName(userId, t = k => k) {
     const user = UserStore.get(userId);
     if (!user) return null;
-    if (!user.type) return null;
 
-    switch (user.type['@type']) {
+    const { type, first_name, last_name } = user;
+    if (!type) return null;
+
+    switch (type['@type']) {
         case 'userTypeBot':
         case 'userTypeRegular': {
-            if (user.first_name) return user.first_name;
-            if (user.last_name) return user.last_name;
+            if (first_name) return first_name;
+            if (last_name) return last_name;
         }
         case 'userTypeDeleted':
         case 'userTypeUnknown': {
-            return 'Deleted account';
+            return t('HiddenName');
         }
     }
 
@@ -150,11 +155,11 @@ function isUserBlocked(userId) {
     return false;
 }
 
-function getUserLetters(userId, firstName, lastName) {
+function getUserLetters(userId, firstName, lastName, t) {
     const user = UserStore.get(userId);
     if (!user && !(firstName || lastName)) return null;
 
-    const title = getUserFullName(user) || `${firstName} ${lastName}`.trim();
+    const title = getUserFullName(userId, null, t) || `${firstName} ${lastName}`.trim();
     const letters = getLetters(title);
     if (letters && letters.length > 0) {
         return letters;
@@ -194,21 +199,21 @@ function getUserStatusOrder(user) {
     }
 }
 
-function getProfilePhoto(userProfilePhoto) {
-    if (!userProfilePhoto) return null;
+function getProfilePhoto(photo) {
+    if (!photo) return null;
 
-    const { id, sizes } = userProfilePhoto;
+    const { id, sizes } = photo;
     if (!sizes) return null;
     if (!sizes.length) return null;
 
-    const smallPhotoSize = getSize(sizes, PROFILE_PHOTO_SMALL_SIZE);
-    const bigPhotoSize = getSize(sizes, PROFILE_PHOTO_BIG_SIZE);
+    const { photo: small } = getSize(sizes, PROFILE_PHOTO_SMALL_SIZE);
+    const { photo: big } = getSize(sizes, PROFILE_PHOTO_BIG_SIZE);
 
     return {
         '@type': 'profilePhoto',
-        id: id,
-        small: smallPhotoSize.photo,
-        big: bigPhotoSize.photo
+        id,
+        small,
+        big
     };
 }
 

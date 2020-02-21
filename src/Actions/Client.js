@@ -7,6 +7,36 @@
 
 import TdLibController from '../Controllers/TdLibController';
 
+export function openArchive() {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateOpenArchive'
+    });
+}
+
+export function editMessage(chatId, messageId) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateEditMessage',
+        chatId,
+        messageId
+    });
+}
+
+export function deleteMessages(chatId, messageIds) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateDeleteMessages',
+        chatId,
+        messageIds
+    });
+}
+
+export function replyMessage(chatId, messageId) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateReply',
+        chatId,
+        messageId
+    });
+}
+
 export function forwardMessages(chatId, messageIds) {
     TdLibController.clientUpdate({
         '@type': 'clientUpdateForward',
@@ -68,6 +98,17 @@ export function selectMessage(chatId, messageId, selected) {
     });
 }
 
+export function clearSelection() {
+    TdLibController.clientUpdate({ '@type': 'clientUpdateClearSelection' });
+}
+
+export function setInstantViewViewerContent(content) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateInstantViewViewerContent',
+        content
+    });
+}
+
 export function setMediaViewerContent(content) {
     TdLibController.clientUpdate({
         '@type': 'clientUpdateMediaViewerContent',
@@ -79,5 +120,20 @@ export function setProfileMediaViewerContent(content) {
     TdLibController.clientUpdate({
         '@type': 'clientUpdateProfileMediaViewerContent',
         content
+    });
+}
+
+export function setInstantViewContent(content) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateInstantViewContent',
+        content
+    });
+}
+
+export function searchChat(chatId, query = null) {
+    TdLibController.clientUpdate({
+        '@type': 'clientUpdateSearchChat',
+        chatId,
+        query
     });
 }

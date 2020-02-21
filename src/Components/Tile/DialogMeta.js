@@ -6,25 +6,16 @@
  */
 
 import React from 'react';
-import classNames from 'classnames';
-import withStyles from '@material-ui/core/styles/withStyles';
+import Status from '../Message/Status';
 import { getLastMessageDate } from '../../Utils/Chat';
 import ChatStore from '../../Stores/ChatStore';
 import './DialogMeta.css';
 
-const styles = theme => ({
-    dialogMetaDate: {
-        color: theme.palette.text.secondary
-    }
-});
-
 class DialogMeta extends React.Component {
     shouldComponentUpdate(nextProps, nextState) {
-        if (nextProps.chatId !== this.props.chatId) {
-            return true;
-        }
+        const { chatId } = this.props;
 
-        if (nextProps.theme !== this.props.theme) {
+        if (nextProps.chatId !== chatId) {
             return true;
         }
 
@@ -42,13 +33,13 @@ class DialogMeta extends React.Component {
     }
 
     componentWillUnmount() {
-        ChatStore.removeListener('clientUpdateFastUpdatingComplete', this.onFastUpdatingComplete);
-        ChatStore.removeListener('clientUpdateClearHistory', this.onClientUpdateClearHistory);
-        ChatStore.removeListener('updateChatDraftMessage', this.onUpdate);
-        ChatStore.removeListener('updateChatLastMessage', this.onUpdate);
-        ChatStore.removeListener('updateChatReadInbox', this.onUpdate);
-        ChatStore.removeListener('updateChatUnreadMentionCount', this.onUpdate);
-        ChatStore.removeListener('updateMessageMentionRead', this.onUpdate);
+        ChatStore.off('clientUpdateFastUpdatingComplete', this.onFastUpdatingComplete);
+        ChatStore.off('clientUpdateClearHistory', this.onClientUpdateClearHistory);
+        ChatStore.off('updateChatDraftMessage', this.onUpdate);
+        ChatStore.off('updateChatLastMessage', this.onUpdate);
+        ChatStore.off('updateChatReadInbox', this.onUpdate);
+        ChatStore.off('updateChatUnreadMentionCount', this.onUpdate);
+        ChatStore.off('updateMessageMentionRead', this.onUpdate);
     }
 
     onClientUpdateClearHistory = update => {
@@ -75,13 +66,31 @@ class DialogMeta extends React.Component {
     render() {
         if (this.clearHistory) return null;
 
-        const { chatId, classes } = this.props;
+        const { chatId } = this.props;
 
         const chat = ChatStore.get(chatId);
-        const date = getLastMessageDate(chat);
+        if (!chat) return null;
 
-        return <>{date && <div className={classNames('dialog-meta', classes.dialogMetaDate)}>{date}</div>}</>;
+        const { last_message } = chat;
+        if (!last_message) return null;
+
+        const date = getLastMessageDate(chat);
+        if (!date) return null;
+
+        const { id, is_outgoing } = last_message;
+
+        return (
+            <div className='dialog-meta'>
+                {is_outgoing && (
+                    <>
+                        <Status chatId={chatId} messageId={id} />
+                        <span> </span>
+                    </>
+                )}
+                {date}
+            </div>
+        );
     }
 }
 
-export default withStyles(styles, { withTheme: true })(DialogMeta);
+export default DialogMeta;

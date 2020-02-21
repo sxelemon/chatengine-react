@@ -7,18 +7,19 @@
 
 import React from 'react';
 import { withTranslation } from 'react-i18next';
-import { ReactComponent as BubblesLogo } from '../../Assets/Bubbles.svg';
-import ApplicationStore from '../../Stores/ApplicationStore';
+// import { ReactComponent as BubblesLogo } from '../../Assets/Bubbles.svg';
+import AppStore from '../../Stores/ApplicationStore';
 import './Placeholder.css';
 
 class Placeholder extends React.Component {
     constructor(props) {
         super(props);
 
-        const { chatId, dialogsReady } = ApplicationStore;
+        const { chatId, dialogsReady, cacheLoaded } = AppStore;
         this.state = {
             chatId,
-            dialogsReady
+            dialogsReady,
+            cacheLoaded
         };
     }
 
@@ -31,18 +32,30 @@ class Placeholder extends React.Component {
             return true;
         }
 
+        if (nextState.cacheLoaded !== this.state.cacheLoaded) {
+            return true;
+        }
+
         return false;
     }
 
     componentDidMount() {
-        ApplicationStore.on('clientUpdateChatId', this.onClientUpdateChatId);
-        ApplicationStore.on('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
+        AppStore.on('clientUpdateChatId', this.onClientUpdateChatId);
+        AppStore.on('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
+        AppStore.on('clientUpdateCacheLoaded', this.onClientUpdateCacheLoaded);
     }
 
     componentWillUnmount() {
-        ApplicationStore.removeListener('clientUpdateChatId', this.onClientUpdateChatId);
-        ApplicationStore.removeListener('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
+        AppStore.off('clientUpdateChatId', this.onClientUpdateChatId);
+        AppStore.off('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
+        AppStore.off('clientUpdateCacheLoaded', this.onClientUpdateCacheLoaded);
     }
+
+    onClientUpdateCacheLoaded = update => {
+        const { cacheLoaded } = AppStore;
+
+        this.setState({ cacheLoaded });
+    };
 
     onClientUpdateChatId = update => {
         const { nextChatId: chatId } = update;
@@ -51,28 +64,26 @@ class Placeholder extends React.Component {
     };
 
     onClientUpdateDialogsReady = update => {
-        const { dialogsReady } = ApplicationStore;
+        const { dialogsReady } = AppStore;
 
         this.setState({ dialogsReady });
     };
 
     render() {
-        const { t } = this.props;
-        const { chatId, dialogsReady } = this.state;
+        const { t, force } = this.props;
+        const { chatId, dialogsReady, cacheLoaded } = this.state;
         if (chatId) return null;
-        if (!dialogsReady) return null;
+        // if (!dialogsReady && !cacheLoaded) return null;
 
         return (
             <div className='placeholder'>
                 <div className='placeholder-wrapper'>
-                    <BubblesLogo className='placeholder-logo' />
-                    {t('SelectChatToStartMessaging')}
+                    {/*<BubblesLogo className='placeholder-logo' />*/}
+                    <div className='placeholder-meta'>{t('SelectChatToStartMessaging')}</div>
                 </div>
             </div>
         );
     }
 }
-
-Placeholder.propTypes = {};
 
 export default withTranslation()(Placeholder);

@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import dateFormat from 'dateformat';
 import emojiRegex from 'emoji-regex';
 import Audio from '../Components/Message/Media/Audio';
 import Animation from '../Components/Message/Media/Animation';
@@ -14,6 +13,7 @@ import Contact from '../Components/Message/Media/Contact';
 import Document from '../Components/Message/Media/Document';
 import Game from '../Components/Message/Media/Game';
 import Location from '../Components/Message/Media/Location';
+import MentionLink from '../Components/Additional/MentionLink';
 import Photo from '../Components/Message/Media/Photo';
 import Poll from '../Components/Message/Media/Poll';
 import SafeLink from '../Components/Additional/SafeLink';
@@ -22,23 +22,94 @@ import Venue from '../Components/Message/Media/Venue';
 import Video from '../Components/Message/Media/Video';
 import VideoNote from '../Components/Message/Media/VideoNote';
 import VoiceNote from '../Components/Message/Media/VoiceNote';
-import { setMediaViewerContent } from '../Actions/Client';
-import { getChatTitle } from './Chat';
+import dateFormat from '../Utils/Date';
+import { searchChat, setMediaViewerContent } from '../Actions/Client';
+import {
+    getChatDisableMentionNotifications,
+    getChatDisablePinnedMessageNotifications,
+    getChatTitle,
+    isChatMuted,
+    isMeChat
+} from './Chat';
 import { openUser } from './../Actions/Client';
-import { getPhotoSize, getSize } from './Common';
+import { getPhotoSize } from './Common';
 import { download, saveOrDownload } from './File';
 import { getAudioTitle } from './Media';
+import { getDecodedUrl } from './Url';
 import { getServiceMessageContent } from './ServiceMessage';
 import { getUserFullName } from './User';
 import { LOCATION_HEIGHT, LOCATION_SCALE, LOCATION_WIDTH, LOCATION_ZOOM } from '../Constants';
-import ApplicationStore from '../Stores/ApplicationStore';
+import AppStore from '../Stores/ApplicationStore';
 import ChatStore from '../Stores/ChatStore';
 import FileStore from '../Stores/FileStore';
 import MessageStore from '../Stores/MessageStore';
 import UserStore from '../Stores/UserStore';
 import TdLibController from '../Controllers/TdLibController';
+import Call from '../Components/Message/Media/Call';
 
-function getAuthor(message) {
+export function isMetaBubble(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) {
+        return false;
+    }
+
+    const { content } = message;
+    if (!content) {
+        return false;
+    }
+
+    const { caption } = content;
+    if (caption && caption.text && caption.text.length > 0) {
+        return false;
+    }
+
+    switch (content['@type']) {
+        case 'messageAnimation': {
+            return true;
+        }
+        case 'messageLocation': {
+            return true;
+        }
+        case 'messagePhoto': {
+            return true;
+        }
+        case 'messageSticker': {
+            return true;
+        }
+        case 'messageVideo': {
+            return true;
+        }
+        case 'messageVideoNote': {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+export function isMessageUnread(chatId, messageId) {
+    const chat = ChatStore.get(chatId);
+    if (!chat) {
+        return false;
+    }
+
+    const { last_read_inbox_message_id, last_read_outbox_message_id } = chat;
+
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) {
+        return false;
+    }
+
+    const { id, is_outgoing } = message;
+    const isMe = isMeChat(chatId);
+    if (is_outgoing && isMe) {
+        return false;
+    }
+
+    return is_outgoing ? id > last_read_outbox_message_id : id > last_read_inbox_message_id;
+}
+
+function getAuthor(message, t = k => k) {
     if (!message) return null;
 
     const { forward_info } = message;
@@ -49,7 +120,7 @@ function getAuthor(message) {
                 if (forward_info.sender_user_id > 0) {
                     const user = UserStore.get(forward_info.sender_user_id);
                     if (user) {
-                        return getUserFullName(user);
+                        return getUserFullName(forward_info.sender_user_id, null, t);
                     }
                 }
                 break;
@@ -64,10 +135,10 @@ function getAuthor(message) {
         }
     }
 
-    return getTitle(message);
+    return getTitle(message, t);
 }
 
-function getTitle(message) {
+function getTitle(message, t = k => k) {
     if (!message) return null;
 
     const { sender_user_id, chat_id } = message;
@@ -75,7 +146,7 @@ function getTitle(message) {
     if (sender_user_id) {
         const user = UserStore.get(sender_user_id);
         if (user) {
-            return getUserFullName(user);
+            return getUserFullName(sender_user_id, null, t);
         }
     }
 
@@ -102,151 +173,201 @@ function stopPropagation(event) {
     event.stopPropagation();
 }
 
-function getFormattedText(text) {
-    if (text['@type'] !== 'formattedText') return null;
-    if (!text.text) return null;
-    if (!text.entities) return text.text;
+function searchCurrentChat(event, text) {
+    event.stopPropagation();
+    event.preventDefault();
 
+    const { chatId } = AppStore;
+
+    searchChat(chatId, text);
+}
+
+function getFormattedText(formattedText, t = k => k) {
+    if (formattedText['@type'] !== 'formattedText') return null;
+
+    const { text, entities } = formattedText;
+    if (!text) return null;
+    if (!entities) return text;
+
+    let deleteLineBreakAfterPre = false;
     let result = [];
     let index = 0;
-    for (let i = 0; i < text.entities.length; i++) {
-        let beforeEntityText = substring(text.text, index, text.entities[i].offset);
-        if (beforeEntityText) {
-            result.push(beforeEntityText);
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        const { offset, length, type } = entity;
+
+        // skip nested entities
+        if (index > offset) {
+            continue;
         }
 
-        let entityText = substring(
-            text.text,
-            text.entities[i].offset,
-            text.entities[i].offset + text.entities[i].length
-        );
-        switch (text.entities[i].type['@type']) {
-            case 'textEntityTypeUrl': {
-                result.push(<SafeLink key={text.entities[i].offset} url={entityText} displayText={entityText} />);
-                break;
+        let textBefore = substring(text, index, offset);
+        const textBeforeLength = textBefore.length;
+        if (textBefore) {
+            if (deleteLineBreakAfterPre && textBefore.length > 0 && textBefore[0] === '\n') {
+                textBefore = textBefore.substr(1);
+                deleteLineBreakAfterPre = false;
             }
-            case 'textEntityTypeTextUrl': {
-                let url = entityText;
-                const { url: typeUrl } = text.entities[i].type;
-                if (typeUrl) {
-                    url = typeUrl;
-                }
+            if (textBefore) {
+                result.push(textBefore);
+            }
+        }
 
-                result.push(<SafeLink key={text.entities[i].offset} url={url} displayText={entityText} />);
+        const entityKey = offset;
+        let entityText = substring(text, offset, offset + length);
+        if (deleteLineBreakAfterPre && entityText.length > 0 && entityText[0] === '\n') {
+            entityText = entityText.substr(1);
+            deleteLineBreakAfterPre = false;
+        }
+
+        switch (type['@type']) {
+            case 'textEntityTypeBold': {
+                result.push(<strong key={entityKey}>{entityText}</strong>);
                 break;
             }
-            case 'textEntityTypeBold':
-                result.push(<strong key={text.entities[i].offset}>{entityText}</strong>);
-                break;
-            case 'textEntityTypeItalic':
-                result.push(<em key={text.entities[i].offset}>{entityText}</em>);
-                break;
-            case 'textEntityTypeCode':
-                result.push(<code key={text.entities[i].offset}>{entityText}</code>);
-                break;
-            case 'textEntityTypePre':
+            case 'textEntityTypeBotCommand': {
+                const command = entityText.length > 0 && entityText[0] === '/' ? substring(entityText, 1) : entityText;
                 result.push(
-                    <pre key={text.entities[i].offset}>
-                        <code>{entityText}</code>
-                    </pre>
-                );
-                break;
-            case 'textEntityTypeMention':
-                result.push(
-                    <a key={text.entities[i].offset} onClick={stopPropagation} href={`#/im?p=${entityText}`}>
+                    <a key={entityKey} onClick={stopPropagation} href={`tg://bot_command?command=${command}&bot=`}>
                         {entityText}
                     </a>
                 );
                 break;
-            case 'textEntityTypeMentionName':
+            }
+            case 'textEntityTypeCashtag': {
                 result.push(
-                    <a
-                        key={text.entities[i].offset}
-                        onClick={stopPropagation}
-                        href={`#/im?p=u${text.entities[i].type.user_id}`}>
+                    <a key={entityKey} onClick={event => searchCurrentChat(event, entityText)}>
                         {entityText}
                     </a>
                 );
                 break;
-            case 'textEntityTypeHashtag':
-                let hashtag = entityText.length > 0 && entityText[0] === '#' ? substring(entityText, 1) : entityText;
-                result.push(
-                    <a
-                        key={text.entities[i].offset}
-                        onClick={stopPropagation}
-                        href={`tg://search_hashtag?hashtag=${hashtag}`}>
-                        {entityText}
-                    </a>
-                );
+            }
+            case 'textEntityTypeCode': {
+                result.push(<code key={entityKey}>{entityText}</code>);
                 break;
-            case 'textEntityTypeEmailAddress':
+            }
+            case 'textEntityTypeEmailAddress': {
                 result.push(
                     <a
-                        key={text.entities[i].offset}
-                        onClick={stopPropagation}
+                        key={entityKey}
                         href={`mailto:${entityText}`}
+                        onClick={stopPropagation}
                         target='_blank'
                         rel='noopener noreferrer'>
                         {entityText}
                     </a>
                 );
                 break;
-            case 'textEntityTypeBotCommand':
-                let command = entityText.length > 0 && entityText[0] === '/' ? substring(entityText, 1) : entityText;
+            }
+            case 'textEntityTypeHashtag': {
                 result.push(
-                    <a
-                        key={text.entities[i].offset}
-                        onClick={stopPropagation}
-                        href={`tg://bot_command?command=${command}&bot=`}>
+                    <a key={entityKey} onClick={event => searchCurrentChat(event, entityText)}>
                         {entityText}
                     </a>
                 );
                 break;
+            }
+            case 'textEntityTypeItalic': {
+                result.push(<em key={entityKey}>{entityText}</em>);
+                break;
+            }
+            case 'textEntityTypeMentionName': {
+                result.push(
+                    <MentionLink key={entityKey} userId={type.user_id} title={getUserFullName(type.user_id, null, t)}>
+                        {entityText}
+                    </MentionLink>
+                );
+                break;
+            }
+            case 'textEntityTypeMention': {
+                result.push(
+                    <MentionLink key={entityKey} username={entityText}>
+                        {entityText}
+                    </MentionLink>
+                );
+                break;
+            }
+            case 'textEntityTypePhoneNumber': {
+                result.push(
+                    <a key={entityKey} href={`tel:${entityText}`} onClick={stopPropagation}>
+                        {entityText}
+                    </a>
+                );
+                break;
+            }
+            case 'textEntityTypePre': {
+                result.push(<pre key={entityKey}>{entityText}</pre>);
+                deleteLineBreakAfterPre = true;
+                break;
+            }
+            case 'textEntityTypePreCode': {
+                result.push(
+                    <pre key={entityKey}>
+                        <code>{entityText}</code>
+                    </pre>
+                );
+                deleteLineBreakAfterPre = true;
+                break;
+            }
+            case 'textEntityTypeTextUrl': {
+                const url = type.url ? type.url : entityText;
+
+                result.push(
+                    <SafeLink key={entityKey} url={url}>
+                        {entityText}
+                    </SafeLink>
+                );
+                break;
+            }
+            case 'textEntityTypeUrl': {
+                result.push(
+                    <SafeLink key={entityKey} url={entityText}>
+                        {entityText}
+                    </SafeLink>
+                );
+                break;
+            }
             default:
                 result.push(entityText);
                 break;
         }
 
-        index += beforeEntityText.length + entityText.length;
+        index += textBeforeLength + entity.length;
     }
 
-    if (index < text.text.length) {
-        let afterEntityText = text.text.substring(index);
-        if (afterEntityText) {
-            result.push(afterEntityText);
+    if (index < text.length) {
+        let textAfter = text.substring(index);
+        if (deleteLineBreakAfterPre && textAfter.length > 0 && textAfter[0] === '\n') {
+            textAfter = textAfter.substr(1);
+        }
+        if (textAfter) {
+            result.push(textAfter);
         }
     }
 
     return result;
 }
 
-function getText(message) {
+function getText(message, meta, t = k => k) {
     if (!message) return null;
 
-    let text = [];
+    let result = [];
 
     const { content } = message;
+    if (!content) return [...result, meta];
 
-    if (
-        content &&
-        content['@type'] === 'messageText' &&
-        content.text &&
-        content.text['@type'] === 'formattedText' &&
-        content.text.text
-    ) {
-        text = getFormattedText(content.text);
-    } else {
-        //text.push('[' + message.content['@type'] + ']');//JSON.stringify(x);
-        if (content && content.caption && content.caption['@type'] === 'formattedText' && content.caption.text) {
-            text.push('\n');
-            let formattedText = getFormattedText(content.caption);
-            if (formattedText) {
-                text = text.concat(formattedText);
-            }
+    const { text, caption } = content;
+
+    if (text && text['@type'] === 'formattedText' && text.text) {
+        result = getFormattedText(text, t);
+    } else if (caption && caption['@type'] === 'formattedText' && caption.text) {
+        const formattedText = getFormattedText(caption, t);
+        if (formattedText) {
+            result = result.concat(formattedText);
         }
     }
 
-    return text;
+    return result && result.length > 0 ? [...result, meta] : [];
 }
 
 function getWebPage(message) {
@@ -271,7 +392,7 @@ function getDateHint(date) {
     return dateFormat(d, 'H:MM:ss d.mm.yyyy'); //date.toDateString();
 }
 
-function getMedia(message, openMedia) {
+function getMedia(message, openMedia, hasTitle = false, hasCaption = false, inlineMeta = null) {
     if (!message) return null;
 
     const { chat_id, id, content } = message;
@@ -279,21 +400,94 @@ function getMedia(message, openMedia) {
 
     switch (content['@type']) {
         case 'messageAnimation':
-            return <Animation chatId={chat_id} messageId={id} animation={content.animation} openMedia={openMedia} />;
+            return (
+                <Animation
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    animation={content.animation}
+                    openMedia={openMedia}
+                />
+            );
         case 'messageAudio':
-            return <Audio chatId={chat_id} messageId={id} audio={content.audio} openMedia={openMedia} />;
+            return (
+                <Audio
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    audio={content.audio}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
+        case 'messageCall':
+            return (
+                <Call
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    duraton={content.duration}
+                    discardReason={content.discard_reason}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
         case 'messageContact':
-            return <Contact chatId={chat_id} messageId={id} contact={content.contact} openMedia={openMedia} />;
+            return (
+                <Contact
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    contact={content.contact}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
         case 'messageDocument':
-            return <Document chatId={chat_id} messageId={id} document={content.document} openMedia={openMedia} />;
+            return (
+                <Document
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    document={content.document}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
         case 'messageGame':
             return <Game chatId={chat_id} messageId={id} game={content.game} openMedia={openMedia} />;
         case 'messageLocation':
-            return <Location chatId={chat_id} messageId={id} location={content.location} openMedia={openMedia} />;
+            return (
+                <Location
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    location={content.location}
+                    openMedia={openMedia}
+                />
+            );
         case 'messagePhoto':
-            return <Photo chatId={chat_id} messageId={id} photo={content.photo} openMedia={openMedia} />;
+            return (
+                <Photo
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    photo={content.photo}
+                    openMedia={openMedia}
+                />
+            );
         case 'messagePoll':
-            return <Poll chatId={chat_id} messageId={id} poll={content.poll} openMedia={openMedia} />;
+            return <Poll chatId={chat_id} messageId={id} poll={content.poll} openMedia={openMedia} meta={inlineMeta} />;
         case 'messageSticker':
             return (
                 <Sticker
@@ -307,15 +501,57 @@ function getMedia(message, openMedia) {
         case 'messageText':
             return null;
         case 'messageVenue':
-            return <Venue chatId={chat_id} messageId={id} venue={content.venue} openMedia={openMedia} />;
+            return (
+                <Venue
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    venue={content.venue}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
         case 'messageVideo':
-            return <Video chatId={chat_id} messageId={id} video={content.video} openMedia={openMedia} />;
+            return (
+                <Video
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    video={content.video}
+                    openMedia={openMedia}
+                />
+            );
         case 'messageVideoNote':
-            return <VideoNote chatId={chat_id} messageId={id} videoNote={content.video_note} openMedia={openMedia} />;
+            return (
+                <VideoNote
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    videoNote={content.video_note}
+                    openMedia={openMedia}
+                />
+            );
         case 'messageVoiceNote':
-            return <VoiceNote chatId={chat_id} messageId={id} voiceNote={content.voice_note} openMedia={openMedia} />;
+            return (
+                <VoiceNote
+                    type='message'
+                    title={hasTitle}
+                    caption={hasCaption}
+                    chatId={chat_id}
+                    messageId={id}
+                    voiceNote={content.voice_note}
+                    openMedia={openMedia}
+                    meta={inlineMeta}
+                />
+            );
         default:
-            return '[' + content['@type'] + ']';
+            return [`[${content['@type']}]`, inlineMeta];
     }
 }
 
@@ -350,8 +586,7 @@ function getForwardTitle(forwardInfo, t = key => key) {
         case 'messageForwardOriginUser': {
             const { sender_user_id } = origin;
 
-            const user = UserStore.get(sender_user_id);
-            return getUserFullName(user);
+            return getUserFullName(sender_user_id, null, t);
         }
         case 'messageForwardOriginHiddenUser': {
             const { sender_name } = origin;
@@ -562,11 +797,17 @@ function isMediaContent(content) {
     return content['@type'] === 'messagePhoto';
 }
 
-function getLocationId(location) {
+function getLocationId(
+    location,
+    width = LOCATION_WIDTH,
+    height = LOCATION_HEIGHT,
+    zoom = LOCATION_ZOOM,
+    scale = LOCATION_SCALE
+) {
     if (!location) return null;
 
     const { longitude, latitude } = location;
-    return `loc=${latitude},${longitude}&size=${LOCATION_WIDTH},${LOCATION_HEIGHT}&scale=${LOCATION_SCALE}&zoom=${LOCATION_ZOOM}`;
+    return `loc=${latitude},${longitude}&size=${width},${height}&scale=${scale}&zoom=${zoom}`;
 }
 
 function isVideoMessage(chatId, messageId) {
@@ -664,7 +905,7 @@ function isContentOpened(chatId, messageId) {
     }
 }
 
-function getMediaTitle(message) {
+function getMediaTitle(message, t = k => k) {
     if (!message) return null;
 
     const { content } = message;
@@ -690,7 +931,7 @@ function getMediaTitle(message) {
         }
     }
 
-    return getAuthor(message);
+    return getAuthor(message, t);
 }
 
 function hasAudio(chatId, messageId) {
@@ -845,10 +1086,10 @@ function openAnimation(animation, message, fileCancel) {
     } else if (fileCancel && file.remote.is_uploading_active) {
         FileStore.cancelUploadFile(file.id, message);
         return;
+    } else {
+        // download file at loadMediaViewerContent instead
+        // download(file, message, FileStore.updateAnimationBlob(chat_id, id, file.id));
     }
-
-    // download file at loadMediaViewerContent instead
-    // download(file, message, FileStore.updateAnimationBlob(chat_id, id, file.id));
 
     TdLibController.clientUpdate({
         '@type': 'clientUpdateActiveAnimation',
@@ -948,7 +1189,7 @@ function openContact(contact, message, fileCancel) {
         message_id: id
     });
 
-    openUser(contact.userId);
+    openUser(contact.user_id, true);
 }
 
 function openDocument(document, message, fileCancel) {
@@ -1329,6 +1570,116 @@ function isDeletedMessage(message) {
     return message && message['@type'] === 'deletedMessage';
 }
 
+export function getReplyMinithumbnail(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return;
+
+    const { content } = message;
+    if (!content) return null;
+
+    switch (content['@type']) {
+        case 'messageAnimation': {
+            const { animation } = content;
+            if (!animation) return null;
+
+            const { minithumbnail } = animation;
+            return minithumbnail || null;
+        }
+        case 'messageAudio': {
+            return null;
+        }
+        case 'messageChatChangePhoto': {
+            const { photo } = content;
+            if (!photo) return null;
+
+            return photo.minithumbnail || null;
+        }
+        case 'messageDocument': {
+            const { document } = content;
+            if (!document) return null;
+
+            const { minithumbnail } = document;
+            return minithumbnail || null;
+        }
+        case 'messageGame': {
+            const { game } = content;
+            if (!game) return null;
+
+            const { animation, photo } = game;
+            if (animation) {
+                const { minithumbnail } = animation;
+                if (minithumbnail) {
+                    return minithumbnail;
+                }
+            }
+
+            if (photo) {
+                return photo.minithumbnail || null;
+            }
+
+            return null;
+        }
+        case 'messagePhoto': {
+            const { photo } = content;
+            if (!photo) return null;
+
+            return photo.minithumbnail || null;
+        }
+        case 'messageSticker': {
+            return null;
+        }
+        case 'messageText': {
+            const { web_page } = content;
+            if (web_page) {
+                const { animation, audio, document, photo, sticker, video, video_note } = web_page;
+                if (photo) {
+                    return photo.minithumbnail || null;
+                }
+                if (animation) {
+                    const { minithumbnail } = animation;
+                    return minithumbnail || null;
+                }
+                if (audio) {
+                    return null;
+                }
+                if (document) {
+                    const { minithumbnail } = document;
+                    return minithumbnail || null;
+                }
+                if (sticker) {
+                    return null;
+                }
+                if (video) {
+                    const { minithumbnail } = video;
+                    return minithumbnail || null;
+                }
+                if (video_note) {
+                    const { minithumbnail } = video_note;
+                    return minithumbnail || null;
+                }
+            }
+
+            break;
+        }
+        case 'messageVideo': {
+            const { video } = content;
+            if (!video) return null;
+
+            const { minithumbnail } = video;
+            return minithumbnail || null;
+        }
+        case 'messageVideoNote': {
+            const { video_note } = content;
+            if (!video_note) return null;
+
+            const { minithumbnail } = video_note;
+            return minithumbnail || null;
+        }
+    }
+
+    return null;
+}
+
 function getReplyPhotoSize(chatId, messageId) {
     const message = MessageStore.get(chatId, messageId);
     if (!message) return;
@@ -1498,6 +1849,629 @@ function getEmojiMatches(chatId, messageId) {
 
 function messageComparatorDesc(left, right) {
     return left.id - right.id;
+}
+
+export function hasMention(message) {
+    return message && message.contains_unread_mention;
+}
+
+export function hasPinnedMessage(message) {
+    return message && message.content['@type'] === 'messagePinMessage';
+}
+
+export function isMessageMuted(message) {
+    const { chat_id } = message;
+
+    if (hasMention(message)) {
+        return getChatDisableMentionNotifications(chat_id);
+    }
+    if (hasPinnedMessage(message)) {
+        return getChatDisablePinnedMessageNotifications(chat_id);
+    }
+
+    return isChatMuted(chat_id);
+}
+
+function checkInclusion(index, entities) {
+    if (!entities) return false;
+    if (!entities.length) return false;
+
+    for (let i = 0; i < entities.length; i++) {
+        if (index >= entities[i].offset && index < entities[i].offset + entities[i].length) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function checkIntersection(startIndex, endIndex, entities) {
+    if (!entities) return false;
+    if (!entities.length) return false;
+
+    for (let i = 0; i < entities.length; i++) {
+        if (startIndex <= entities[i].offset && entities[i].offset + entities[i].length - 1 <= endIndex) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function checkEntity(startIndex, endIndex, entities) {
+    return (
+        !checkInclusion(startIndex, entities) &&
+        !checkInclusion(endIndex, entities) &&
+        !checkIntersection(startIndex, endIndex, entities)
+    );
+}
+
+function removeOffsetAfter(start, countToRemove, entities) {
+    if (!entities) return;
+    if (!entities.length) return;
+
+    entities.forEach(e => {
+        if (e.offset > start) {
+            e.offset -= countToRemove;
+        }
+    });
+}
+
+function addOffsetAfter(start, countToAdd, entities) {
+    if (!entities) return;
+    if (!entities.length) return;
+
+    entities.forEach(e => {
+        if (e.offset > start) {
+            e.offset += countToAdd;
+        }
+    });
+}
+
+function removeEntities(startIndex, endIndex, entities) {
+    if (!entities) return;
+    if (!entities.length) return;
+
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        const entityStart = entity.offset;
+        const entityEnd = entity.offset + entity.length - 1;
+        if (
+            (startIndex <= entityStart && entityStart <= endIndex) ||
+            (startIndex <= entityEnd && entityEnd <= endIndex) ||
+            (entityStart < startIndex && endIndex > entityEnd)
+        ) {
+            entities.splice(i--, 1);
+        }
+    }
+}
+
+function addTextNode(offset, length, text, nodes) {
+    const node = document.createTextNode(text.substr(offset, length));
+    nodes.push(node);
+}
+
+export function getNodes(text, entities, t = k => k) {
+    if (!text) return [];
+
+    entities = (entities || []).sort((a, b) => {
+        if (a.offset - b.offset !== 0) {
+            return a.offset - b.offset;
+        }
+
+        return b.length - a.length;
+    });
+
+    let nodes = [];
+    let offset = 0;
+    let prevEntity = null;
+    entities.forEach(x => {
+        if (x.offset - offset > 0) {
+            addTextNode(offset, x.offset - offset, text, nodes);
+            offset = x.offset;
+        }
+
+        if (!(prevEntity && checkInclusion(x.offset, [prevEntity]))) {
+            switch (x.type['@type']) {
+                case 'textEntityTypeBold': {
+                    const node = document.createElement('b');
+                    node.innerText = text.substr(x.offset, x.length);
+                    nodes.push(node);
+                    break;
+                }
+                case 'textEntityTypeBotCommand': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypeCashtag': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypeCode': {
+                    const node = document.createTextNode('`' + text.substr(x.offset, x.length) + '`');
+                    nodes.push(node);
+                    break;
+                }
+                case 'textEntityTypeEmailAddress': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypeHashtag': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypeItalic': {
+                    const node = document.createElement('i');
+                    node.innerText = text.substr(x.offset, x.length);
+                    nodes.push(node);
+                    break;
+                }
+                case 'textEntityTypeMention': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypeMentionName': {
+                    try {
+                        const { user_id } = x.type;
+                        const user = UserStore.get(user_id);
+                        if (user) {
+                            const node = document.createElement('a');
+                            // node.href = getDecodedUrl(url, false);
+                            node.title = getUserFullName(user_id, null, t);
+                            // node.target = '_blank';
+                            // node.rel = 'noopener noreferrer';
+                            node.dataset.userId = user_id;
+                            node.innerText = text.substr(x.offset, x.length);
+                            nodes.push(node);
+                        } else {
+                            addTextNode(x.offset, x.length, text, nodes);
+                        }
+                    } catch {
+                        addTextNode(x.offset, x.length, text, nodes);
+                    }
+                    break;
+                }
+                case 'textEntityTypePhoneNumber': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                case 'textEntityTypePre': {
+                    const node = document.createTextNode('```' + text.substr(x.offset, x.length) + '```');
+                    nodes.push(node);
+                    break;
+                }
+                case 'textEntityTypePreCode': {
+                    const node = document.createTextNode('```' + text.substr(x.offset, x.length) + '```');
+                    nodes.push(node);
+                    break;
+                }
+                case 'textEntityTypeTextUrl': {
+                    try {
+                        const { url } = x.type;
+
+                        const node = document.createElement('a');
+                        node.href = getDecodedUrl(url, false);
+                        node.title = getDecodedUrl(url, false);
+                        node.target = '_blank';
+                        node.rel = 'noopener noreferrer';
+                        node.innerText = text.substr(x.offset, x.length);
+                        nodes.push(node);
+                    } catch {
+                        addTextNode(x.offset, x.length, text, nodes);
+                    }
+                    break;
+                }
+                case 'textEntityTypeUrl': {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+                default: {
+                    addTextNode(x.offset, x.length, text, nodes);
+                    break;
+                }
+            }
+
+            prevEntity = x;
+            offset += x.length;
+        }
+    });
+
+    if (offset < text.length) {
+        addTextNode(offset, text.length - offset, text, nodes);
+    }
+
+    return nodes;
+}
+
+// based on code from official Android Telegram client
+// https://github.com/DrKLO/Telegram/blob/28eb8dfd0ef959fd5ad7d5d22f1d32879707c0a0/TMessagesProj/src/main/java/org/telegram/messenger/MediaDataController.java#L3782
+export function getEntities(text) {
+    const entities = [];
+    if (!text) return { text, entities };
+
+    text = text.split('<br>').join('\n');
+
+    // console.log(`[ge] start text=${text}`);
+
+    let index = -1; // first index of end tag
+    let lastIndex = 0; // first index after end tag
+    let start = -1; // first index of start tag
+    let isPre = false;
+    const mono = '`';
+    const pre = '```';
+    const bold = '**';
+    const italic = '__';
+
+    // 0 looking for html entities
+    const result = new DOMParser().parseFromString(text, 'text/html');
+    let offset = 0;
+    let length = 0;
+    let finalText = '';
+    result.body.childNodes.forEach(node => {
+        const { textContent, nodeName } = node;
+
+        length = textContent.length;
+        finalText += textContent;
+
+        if (!checkEntity(offset, offset + length - 1, entities)) {
+            return;
+        }
+
+        switch (nodeName) {
+            case '#text': {
+                offset += length;
+                break;
+            }
+            case 'A': {
+                if (node.dataset.userId) {
+                    entities.push({
+                        '@type': 'textEntity',
+                        offset,
+                        length,
+                        type: { '@type': 'textEntityTypeMentionName', user_id: node.dataset.userId },
+                        textContent: finalText.substring(offset, offset + length)
+                    });
+                } else if (node.href) {
+                    entities.push({
+                        '@type': 'textEntity',
+                        offset,
+                        length,
+                        type: { '@type': 'textEntityTypeTextUrl', url: node.href },
+                        textContent: finalText.substring(offset, offset + length)
+                    });
+                }
+                offset += length;
+                break;
+            }
+            case 'B':
+            case 'STRONG': {
+                entities.push({
+                    '@type': 'textEntity',
+                    offset,
+                    length,
+                    type: { '@type': 'textEntityTypeBold' },
+                    textContent: finalText.substring(offset, offset + length)
+                });
+                offset += length;
+                break;
+            }
+            case 'BR': {
+                break;
+            }
+            case 'CODE': {
+                entities.push({
+                    '@type': 'textEntity',
+                    offset,
+                    length,
+                    type: { '@type': 'textEntityTypeCode' },
+                    textContent: finalText.substring(offset, offset + length)
+                });
+                offset += length;
+                break;
+            }
+            case 'I':
+            case 'EM': {
+                entities.push({
+                    '@type': 'textEntity',
+                    offset,
+                    length,
+                    type: { '@type': 'textEntityTypeItalic' },
+                    textContent: finalText.substring(offset, offset + length)
+                });
+                offset += length;
+                break;
+            }
+            case 'PRE': {
+                entities.push({
+                    '@type': 'textEntity',
+                    offset,
+                    length,
+                    type: { '@type': 'textEntityTypePre' },
+                    textContent: finalText.substring(offset, offset + length)
+                });
+                offset += length;
+                break;
+            }
+            default: {
+                offset += length;
+                break;
+            }
+        }
+    });
+    text = finalText;
+    // console.log(`[ge] HTML nodes text=${text}`, entities);
+
+    // 1 looking for ``` and ` in order to find mono and pre entities
+    while ((index = text.indexOf(isPre ? pre : mono, lastIndex)) !== -1) {
+        if (start === -1) {
+            // find start tag
+            isPre = text.length - index > 2 && text[index + 1] === mono && text[index + 2] === mono;
+            start = index;
+            lastIndex = index + (isPre ? 3 : 1);
+        } else {
+            // find end tag
+            for (let i = index + (isPre ? 3 : 1); i < text.length; i++) {
+                if (text[i] === mono) {
+                    index++;
+                } else {
+                    break;
+                }
+            }
+
+            lastIndex = index + (isPre ? 3 : 1);
+            if (isPre) {
+                // add pre tag
+
+                let textBefore = text.substring(0, start);
+                let textContent = text.substring(start + 3, index);
+                let textAfter = text.substring(index + 3, text.length);
+
+                if (textContent.length > 0) {
+                    offset = start;
+                    length = index - start - 3;
+
+                    text = textBefore + textContent + textAfter;
+
+                    const entity = {
+                        '@type': 'textEntity',
+                        offset,
+                        length,
+                        language: '',
+                        type: { '@type': 'textEntityTypePre' },
+                        textContent: text.substring(offset, offset + length)
+                    };
+                    removeEntities(offset, offset + length - 1 + 6);
+                    removeOffsetAfter(offset + length, 6, entities);
+                    entities.push(entity);
+                    lastIndex -= 6;
+
+                    // clean text before
+                    if (textBefore.length > 0) {
+                        const lastChar = textBefore[textBefore.length - 1];
+                        if (lastChar !== '\n') {
+                            if (lastChar === ' ' || lastChar === '\xA0') {
+                                textBefore = textBefore.substr(0, textBefore.length - 1) + '\n';
+                                text = textBefore + textContent + textAfter;
+                            } else {
+                                textBefore += '\n';
+                                text = textBefore + textContent + textAfter;
+                                addOffsetAfter(offset - 1, 1, entities);
+                                lastIndex += 1;
+                            }
+                        }
+                    }
+
+                    // clean text after
+                    if (textAfter.length > 0) {
+                        const firstChar = textAfter[0];
+                        if (firstChar !== '\n') {
+                            if (firstChar === ' ' || firstChar === '\xA0') {
+                                textAfter = '\n' + textAfter.substr(1);
+                                text = textBefore + textContent + textAfter;
+                            } else {
+                                textAfter = '\n' + textAfter;
+                                text = textBefore + textContent + textAfter;
+                                addOffsetAfter(offset + length - 1, 1, entities);
+                                lastIndex += 1;
+                            }
+                        }
+                    }
+
+                    // clean text content
+                    if (textContent.length > 2) {
+                        if (textContent[0] === '\n') {
+                            textContent = textContent.substring(1);
+                            text = textBefore + textContent + textAfter;
+                            entity.length -= 1;
+                            entity.textContent = textContent;
+                            removeOffsetAfter(entity.offset + entity.length - 1, 1, entities);
+                            lastIndex -= 1;
+                        }
+                    }
+
+                    if (textContent.length > 2) {
+                        if (textContent[textContent.length - 1] === '\n') {
+                            textContent = textContent.substring(0, textContent.length - 1);
+                            text = textBefore + textContent + textAfter;
+                            entity.length -= 1;
+                            entity.textContent = textContent;
+                            removeOffsetAfter(entity.offset + entity.length - 1, 1, entities);
+                            lastIndex -= 1;
+                        }
+                    }
+                }
+            } else {
+                // add code tag
+                if (start + 1 !== index) {
+                    offset = start;
+                    length = index - start - 1;
+
+                    text =
+                        text.substring(0, start) +
+                        text.substring(start + 1, index) +
+                        text.substring(index + 1, text.length);
+
+                    const entity = {
+                        '@type': 'textEntity',
+                        offset,
+                        length,
+                        type: { '@type': 'textEntityTypeCode' },
+                        textContent: text.substring(offset, offset + length)
+                    };
+                    removeEntities(offset, offset + length - 1 + 2);
+                    removeOffsetAfter(offset + length, 2, entities);
+                    entities.push(entity);
+                    lastIndex -= 2;
+                }
+            }
+
+            start = -1;
+            isPre = false;
+        }
+    }
+
+    // 1.1 case when ``` is one ` mono symbol
+    if (start !== -1 && isPre) {
+        offset = start;
+        length = 1;
+
+        if (checkEntity(offset, offset + length + 2 - 1, entities)) {
+            text = text.substring(0, start) + text.substring(start + 2, text.length);
+
+            const entity = {
+                '@type': 'textEntity',
+                offset,
+                length,
+                type: { '@type': 'textEntityTypeCode' },
+                textContent: text.substring(offset, offset + length)
+            };
+            removeEntities(offset, offset + length - 1 + 2);
+            removeOffsetAfter(offset + length, 2, entities);
+            entities.push(entity);
+        }
+    }
+
+    // console.log(`[ge] pre and code text=${text}`, entities);
+    // 2 looking for bold, italic entities
+    for (let c = 0; c < 2; c++) {
+        lastIndex = 0;
+        start = -1;
+        const checkString = c === 0 ? bold : italic;
+        const checkChar = c === 0 ? '*' : '_';
+        while ((index = text.indexOf(checkString, lastIndex)) !== -1) {
+            if (start === -1) {
+                const prevChar = index === 0 ? ' ' : text[index - 1];
+                if (
+                    !checkInclusion(index, entities) &&
+                    (prevChar === ' ' || prevChar === '\xA0' || prevChar === '\n')
+                ) {
+                    start = index;
+                }
+                lastIndex = index + 2;
+            } else {
+                for (let a = index + 2; a < text.length; a++) {
+                    if (text[a] === checkChar) {
+                        index++;
+                    } else {
+                        break;
+                    }
+                }
+                lastIndex = index + 2;
+                if (checkInclusion(index, entities) || checkIntersection(start, index, entities)) {
+                    start = -1;
+                    continue;
+                }
+                if (start + 2 !== index) {
+                    offset = start;
+                    length = index - start - 2;
+                    text =
+                        text.substring(0, start) +
+                        text.substring(start + 2, index) +
+                        text.substring(index + 2, text.length);
+
+                    const entity = {
+                        '@type': 'textEntity',
+                        offset,
+                        length,
+                        language: '',
+                        type: { '@type': c === 0 ? 'textEntityTypeBold' : 'textEntityTypeItalic' },
+                        textContent: text.substring(offset, offset + length)
+                    };
+                    removeOffsetAfter(offset + length, 4, entities);
+                    entities.push(entity);
+                    lastIndex -= 4;
+                }
+                start = -1;
+            }
+        }
+    }
+    // console.log(`[ge] result text=${text}`, entities);
+
+    return { text, entities };
+}
+
+export function canMessageBeEdited(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return false;
+
+    const { can_be_edited } = message;
+
+    return can_be_edited;
+}
+
+export function showMessageForward(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return false;
+
+    const { forward_info, content } = message;
+
+    return forward_info && content && content['@type'] !== 'messageSticker' && content['@type'] !== 'messageAudio';
+}
+
+export function isTextMessage(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return false;
+
+    const { content } = message;
+
+    return content && content['@type'] === 'messageText';
+}
+
+export function isMessagePinned(chatId, messageId) {
+    const chat = ChatStore.get(chatId);
+    if (!chat) return false;
+
+    return chat.pinned_message_id === messageId;
+}
+
+export function canMessageBeUnvoted(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return false;
+
+    const { content } = message;
+    if (!content) return;
+    if (content['@type'] !== 'messagePoll') return;
+
+    const { poll } = content;
+    if (!poll) return false;
+
+    const { type, is_closed, options } = poll;
+    if (!type) return false;
+    if (type['@type'] !== 'pollTypeRegular') return false;
+    if (is_closed) return false;
+
+    return options.some(x => x.is_chosen || x.is_being_chosen);
+}
+
+export function canMessageBeClosed(chatId, messageId) {
+    const message = MessageStore.get(chatId, messageId);
+    if (!message) return false;
+
+    const { content, can_be_edited } = message;
+    if (!content) return;
+    if (content['@type'] !== 'messagePoll') return;
+
+    return can_be_edited;
 }
 
 export {

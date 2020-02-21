@@ -7,19 +7,11 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-import withStyles from '@material-ui/core/styles/withStyles';
 import { getDownloadedSize, getUploadedSize, getFileSize } from '../../../Utils/File';
 import { getDurationString } from '../../../Utils/Common';
 import FileStore from '../../../Stores/FileStore';
 import PlayerStore from '../../../Stores/PlayerStore';
 import './AudioAction.css';
-
-const styles = theme => ({
-    audioAction: {
-        color: theme.palette.text.secondary
-    }
-});
 
 class AudioAction extends React.Component {
     constructor(props) {
@@ -80,11 +72,11 @@ class AudioAction extends React.Component {
     }
 
     componentWillUnmount() {
-        FileStore.removeListener('updateFile', this.onUpdateFile);
+        FileStore.off('updateFile', this.onUpdateFile);
 
-        PlayerStore.removeListener('clientUpdateMediaActive', this.onClientUpdateMediaActive);
-        PlayerStore.removeListener('clientUpdateMediaTime', this.onClientUpdateMediaTime);
-        PlayerStore.removeListener('clientUpdateMediaEnd', this.onClientUpdateMediaEnd);
+        PlayerStore.off('clientUpdateMediaActive', this.onClientUpdateMediaActive);
+        PlayerStore.off('clientUpdateMediaTime', this.onClientUpdateMediaTime);
+        PlayerStore.off('clientUpdateMediaEnd', this.onClientUpdateMediaEnd);
     }
 
     onClientUpdateMediaEnd = update => {
@@ -152,7 +144,7 @@ class AudioAction extends React.Component {
     };
 
     render() {
-        const { classes, title } = this.props;
+        const { title, meta } = this.props;
         const { active, file, timeString } = this.state;
         if (!file) return null;
 
@@ -171,22 +163,23 @@ class AudioAction extends React.Component {
         const sizeString = progressSize ? `${progressSize}/${size}` : `${size}`;
 
         return (
-            <div className={classNames('audio-action', classes.audioAction)}>
+            <div className='audio-action'>
                 {!active && <span>{title}</span>}
                 {!isDownloadingCompleted && <span>{`${sizeString}, `}</span>}
                 <span>{timeString}</span>
+                {meta}
             </div>
         );
     }
 }
 
 AudioAction.propTypes = {
-    chatId: PropTypes.number.isRequired,
-    messageId: PropTypes.number.isRequired,
+    chatId: PropTypes.number,
+    messageId: PropTypes.number,
     duration: PropTypes.number.isRequired,
     file: PropTypes.object.isRequired,
 
     title: PropTypes.string
 };
 
-export default withStyles(styles, { withTheme: true })(AudioAction);
+export default AudioAction;

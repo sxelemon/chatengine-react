@@ -8,8 +8,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
-import { compose } from 'recompose';
-import withStyles from '@material-ui/core/styles/withStyles';
 import { withTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox/';
@@ -24,7 +22,6 @@ import MenuList from '@material-ui/core/MenuList';
 import Popover from '@material-ui/core/Popover';
 import Photo from '../../Message/Media/Photo';
 import SafeLink from '../../Additional/SafeLink';
-import { accentStyles } from '../../Theme';
 import { openMedia, substring } from '../../../Utils/Message';
 import { getChatShortTitle, isPrivateChat } from '../../../Utils/Chat';
 import { forwardMessages, openChat } from '../../../Actions/Client';
@@ -32,10 +29,6 @@ import punycode from '../../../Utils/Punycode';
 import MessageStore from '../../../Stores/MessageStore';
 import TdLibController from '../../../Controllers/TdLibController';
 import './SharedLink.css';
-
-const styles = theme => ({
-    ...accentStyles(theme)
-});
 
 class SharedLink extends React.Component {
     constructor(props) {
@@ -48,6 +41,32 @@ class SharedLink extends React.Component {
             openDeleteDialog: false,
             revoke: false
         };
+    }
+
+    shouldComponentUpdate(nextProps, nextState, nextContext) {
+        const { contextMenu, left, top, openDeleteDialog, revoke } = this.state;
+
+        if (nextState.contextMenu !== contextMenu) {
+            return true;
+        }
+
+        if (nextState.left !== left) {
+            return true;
+        }
+
+        if (nextState.top !== top) {
+            return true;
+        }
+
+        if (nextState.openDeleteDialog !== openDeleteDialog) {
+            return true;
+        }
+
+        if (nextState.revoke !== revoke) {
+            return true;
+        }
+
+        return false;
     }
 
     handleOpenMessage = event => {
@@ -152,8 +171,6 @@ class SharedLink extends React.Component {
             const hostname = new URL(decodedUrl).hostname.split('.');
             const domain = hostname.length >= 2 ? hostname[hostname.length - 2] : new URL(decodedUrl).hostname;
 
-            console.log('getTitleFromUrl', punycode);
-
             return punycode.ToUnicode(domain);
         } catch (error) {
             console.error('url: ' + url + '\n' + error);
@@ -163,7 +180,7 @@ class SharedLink extends React.Component {
     }
 
     render() {
-        const { chatId, classes, messageId, webPage, showOpenMessage, t } = this.props;
+        const { chatId, messageId, webPage, showOpenMessage, t } = this.props;
         const { contextMenu, left, top, openDeleteDialog, revoke } = this.state;
 
         const message = MessageStore.get(chatId, messageId);
@@ -182,7 +199,11 @@ class SharedLink extends React.Component {
         if (webPage) {
             title = title || this.getTitleFromUrl(url);
 
-            content = <SafeLink className='shared-link-url' url={url} displayText={display_url} />;
+            content = (
+                <SafeLink className='shared-link-url' url={url}>
+                    {display_url}
+                </SafeLink>
+            );
         } else {
             const { text } = message.content;
             if (text) {
@@ -209,9 +230,13 @@ class SharedLink extends React.Component {
                                 break;
                         }
 
-                        title = title || this.getTitleFromUrl(url);
+                        title = title || this.getTitleFromUrl(url) || ' ';
 
-                        return <SafeLink className='shared-link-url' url={url} displayText={entityText} mail={mail} />;
+                        return (
+                            <SafeLink className='shared-link-url' url={url} mail={mail}>
+                                {entityText}
+                            </SafeLink>
+                        );
                     });
                 }
             }
@@ -254,7 +279,7 @@ class SharedLink extends React.Component {
                         horizontal: 'left'
                     }}
                     onMouseDown={e => e.stopPropagation()}>
-                    <MenuList classes={{ root: classes.menuListRoot }} onClick={e => e.stopPropagation()}>
+                    <MenuList onClick={e => e.stopPropagation()}>
                         {showOpenMessage && <MenuItem onClick={this.handleOpenMessage}>{t('GoToMessage')}</MenuItem>}
                         {can_be_forwarded && <MenuItem onClick={this.handleForward}>{t('Forward')}</MenuItem>}
                         {(can_be_deleted_only_for_self || can_be_deleted_for_all_users) && (
@@ -280,7 +305,9 @@ class SharedLink extends React.Component {
                                     <Checkbox checked={revoke} onChange={this.handleRevokeChange} color='primary' />
                                 }
                                 label={
-                                    isPrivateChat(chatId) ? `Delete for ${getChatShortTitle(chatId)}` : 'Delete for all'
+                                    isPrivateChat(chatId)
+                                        ? `Delete for ${getChatShortTitle(chatId, false, t)}`
+                                        : 'Delete for all'
                                 }
                             />
                         )}
@@ -307,9 +334,4 @@ SharedLink.propTypes = {
     openMedia: PropTypes.func
 };
 
-const enhance = compose(
-    withStyles(styles, { withTheme: true }),
-    withTranslation()
-);
-
-export default enhance(SharedLink);
+export default withTranslation()(SharedLink);

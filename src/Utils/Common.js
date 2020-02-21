@@ -5,8 +5,42 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { formatNumber } from 'libphonenumber-js';
 import { PHOTO_SIZE, PHOTO_THUMBNAIL_SIZE } from '../Constants';
+
+export function isMobile() {
+    return isAndroid() || isIOS() || isWindowsPhone();
+}
+
+export function isIOS() {
+    const iDevices = ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod'];
+
+    if (!!navigator.platform && iDevices.indexOf(navigator.platform) > -1) {
+        return true;
+    }
+
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+export function isAndroid() {
+    const ua = navigator.userAgent.toLowerCase();
+    return ua.indexOf('android') > -1;
+}
+
+export function isWindowsPhone() {
+    if (navigator.userAgent.match(/Windows Phone/i)) {
+        return true;
+    }
+
+    if (navigator.userAgent.match(/iemobile/i)) {
+        return true;
+    }
+
+    if (navigator.userAgent.match(/WPDesktop/i)) {
+        return true;
+    }
+
+    return false;
+}
 
 function isAppleDevice() {
     const iDevices = ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod', 'MacIntel'];
@@ -16,36 +50,6 @@ function isAppleDevice() {
     }
 
     return /iPad|iPhone|iPod|Mac\sOS\sX/.test(navigator.userAgent) && !window.MSStream;
-}
-
-function isConnecting(state) {
-    if (!state) return false;
-
-    switch (state['@type']) {
-        case 'connectionStateConnecting': {
-            return true;
-        }
-        case 'connectionStateConnectingToProxy': {
-            return true;
-        }
-        case 'connectionStateReady': {
-            return false;
-        }
-        case 'connectionStateUpdating': {
-            return false;
-        }
-        case 'connectionStateWaitingForNetwork': {
-            return false;
-        }
-    }
-
-    return false;
-}
-
-function cleanProgressStatus(status) {
-    if (!status) return status;
-
-    return status.replace('...', '').replace('…', '');
 }
 
 function getOSName() {
@@ -85,20 +89,6 @@ function getBrowser() {
     return browser_name;
 }
 
-function isValidPhoneNumber(phoneNumber) {
-    if (!phoneNumber) return false;
-
-    let isBad = !phoneNumber.match(/^[\d\-+\s]+$/);
-    if (!isBad) {
-        phoneNumber = phoneNumber.replace(/\D/g, '');
-        if (phoneNumber.length < 7) {
-            isBad = true;
-        }
-    }
-
-    return !isBad;
-}
-
 function stringToBoolean(string) {
     switch (string.toLowerCase().trim()) {
         case 'true':
@@ -127,8 +117,8 @@ function getPhotoThumbnailSize(sizes) {
     return getSize(sizes, PHOTO_THUMBNAIL_SIZE);
 }
 
-function getPhotoSize(sizes) {
-    return getSize(sizes, PHOTO_SIZE);
+function getPhotoSize(sizes, displaySize = PHOTO_SIZE) {
+    return getSize(sizes, displaySize);
 }
 
 function getSize(sizes, dimension) {
@@ -272,6 +262,9 @@ function getLetters(title) {
     if (title.length === 0) return null;
 
     const split = title.split(' ');
+    if (split.length === 1) {
+        return getFirstLetter(split[0]);
+    }
     if (split.length > 1) {
         return getFirstLetter(split[0]) + getFirstLetter(split[1]);
     }
@@ -283,7 +276,7 @@ function readImageSize(file, callback) {
     let useBlob = false;
     // Create a new FileReader instance
     // https://developer.mozilla.org/en/docs/Web/API/FileReader
-    var reader = new FileReader();
+    const reader = new FileReader();
 
     // Once a file is successfully readed:
     reader.addEventListener('load', function() {
@@ -294,7 +287,7 @@ function readImageSize(file, callback) {
         // Since the File Object does not hold the size of an image
         // we need to create a new image and assign it's src, so when
         // the image is loaded we can calculate it's width and height:
-        var image = new Image();
+        const image = new Image();
         image.addEventListener('load', function() {
             // Concatenate our HTML image info
             // var imageInfo = file.name    +' '+ // get the value of `name` from the `file` Obj
@@ -328,12 +321,6 @@ function readImageSize(file, callback) {
 
     // https://developer.mozilla.org/en-US/docs/Web/API/FileReader/readAsDataURL
     reader.readAsDataURL(file);
-}
-
-function formatPhoneNumber(number) {
-    const unformattedNumber = number && number.startsWith('+') ? number : '+' + number;
-    const formattedNumber = formatNumber(unformattedNumber, 'International');
-    return formattedNumber || unformattedNumber;
 }
 
 /**
@@ -384,6 +371,13 @@ function between(item, first, last, inclusive = false) {
     return inclusive ? item >= first && item <= last : item > first && item < last;
 }
 
+function clamp(item, first, last) {
+    if (item < first) return first;
+    if (item > last) return last;
+
+    return item;
+}
+
 function getDurationString(secondsTotal) {
     let hours = Math.floor(secondsTotal / 3600);
     let minutes = Math.floor((secondsTotal - hours * 3600) / 60);
@@ -423,11 +417,8 @@ function insertByOrder(array, element, comparator) {
 }
 
 export {
-    cleanProgressStatus,
-    isConnecting,
     getBrowser,
     getOSName,
-    isValidPhoneNumber,
     stringToBoolean,
     orderCompare,
     getSize,
@@ -439,10 +430,10 @@ export {
     debounce,
     getLetters,
     readImageSize,
-    formatPhoneNumber,
     arrayBufferToBase64,
     isAuthorizationReady,
     between,
+    clamp,
     getDurationString,
     getRandomInt,
     isAppleDevice,

@@ -6,10 +6,25 @@
  */
 
 .photo {
-    border-radius: 6px;
+    border-radius: 4px;
     transform: translateZ(0);
     overflow: hidden;
-    cursor: pointer;
+}
+
+.photo-big {
+    margin: -6px -9px;
+}
+
+.photo-title {
+    margin-top: 6px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.photo-caption {
+    margin-bottom: 6px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
 .photo-image {
@@ -26,8 +41,8 @@
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
     margin-left: -21px;
     margin-top: -21px;
     animation: spin 4s linear infinite;

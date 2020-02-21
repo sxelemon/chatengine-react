@@ -12,7 +12,7 @@ import './Venue.css';
 
 class Venue extends React.Component {
     render() {
-        const { chatId, messageId, venue, openMedia } = this.props;
+        const { chatId, messageId, venue, openMedia, meta, caption } = this.props;
         if (!venue) return null;
 
         const { title, address, location } = venue;
@@ -23,12 +23,21 @@ class Venue extends React.Component {
 
         return (
             <div className='venue'>
-                <Location chatId={chatId} messageId={messageId} location={location} openMedia={openMedia} />
+                <Location
+                    type='venue'
+                    chatId={chatId}
+                    messageId={messageId}
+                    location={location}
+                    openMedia={openMedia}
+                />
                 <div className='venue-content'>
                     <a href={source} target='_blank' rel='noopener noreferrer'>
                         <div className='venue-title'>{title}</div>
                     </a>
-                    <div className='venue-subtitle'>{address}</div>
+                    <div className='venue-subtitle'>
+                        {address}
+                        {!caption && meta}
+                    </div>
                 </div>
             </div>
         );
@@ -39,7 +48,7 @@ Venue.propTypes = {
     chatId: PropTypes.number.isRequired,
     messageId: PropTypes.number.isRequired,
     venue: PropTypes.object.isRequired,
-    openMedia: PropTypes.func.isRequired
+    openMedia: PropTypes.func
 };
 
 export default Venue;

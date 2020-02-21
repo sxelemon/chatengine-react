@@ -7,26 +7,10 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import withStyles from '@material-ui/core/styles/withStyles';
-import Slider from '@material-ui/lab/Slider';
+import Slider from '@material-ui/core/Slider';
 import { PLAYER_PROGRESS_TIMEOUT_MS } from '../../../Constants';
 import PlayerStore from '../../../Stores/PlayerStore';
 import './VoiceNoteSlider.css';
-
-const styles = {
-    slider: {
-        maxWidth: 216
-    },
-    track: {
-        transition: 'width 0ms linear 0ms, height 0ms linear 0ms, transform 0ms linear 0ms'
-    },
-    thumbWrapper: {
-        transition: 'transform 0ms linear 0ms'
-    },
-    thumb: {
-        transition: 'transform 0ms linear 0ms, box-shadow 0ms linear 0ms'
-    }
-};
 
 class VoiceNoteSlider extends React.Component {
     constructor(props) {
@@ -68,9 +52,9 @@ class VoiceNoteSlider extends React.Component {
     }
 
     componentWillUnmount() {
-        PlayerStore.removeListener('clientUpdateMediaActive', this.onClientUpdateMediaActive);
-        PlayerStore.removeListener('clientUpdateMediaTime', this.onClientUpdateMediaTime);
-        PlayerStore.removeListener('clientUpdateMediaEnd', this.onClientUpdateMediaEnd);
+        PlayerStore.off('clientUpdateMediaActive', this.onClientUpdateMediaActive);
+        PlayerStore.off('clientUpdateMediaTime', this.onClientUpdateMediaTime);
+        PlayerStore.off('clientUpdateMediaEnd', this.onClientUpdateMediaEnd);
     }
 
     reset = () => {
@@ -141,17 +125,16 @@ class VoiceNoteSlider extends React.Component {
     };
 
     render() {
-        const { classes } = this.props;
         const { value } = this.state;
 
         return (
             <div className='voice-note-slider'>
                 <Slider
-                    className={classes.slider}
+                    className='voice-note-slider-component'
                     classes={{
-                        track: classes.track,
-                        thumbWrapper: classes.thumbWrapper,
-                        thumb: classes.thumb
+                        track: 'voice-note-slider-track',
+                        thumbWrapper: 'voice-note-slider-thumb-wrapper',
+                        thumb: 'voice-note-slider-thumb'
                     }}
                     min={0}
                     max={1}
@@ -168,4 +151,4 @@ VoiceNoteSlider.propTypes = {
     duration: PropTypes.number.isRequired
 };
 
-export default withStyles(styles)(VoiceNoteSlider);
+export default VoiceNoteSlider;

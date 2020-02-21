@@ -46,8 +46,8 @@ class ProfileMediaViewerContent extends React.Component {
     }
 
     componentWillUnmount() {
-        FileStore.removeListener('clientUpdateChatBlob', this.onClientUpdateChatBlob);
-        FileStore.removeListener('clientUpdateUserBlob', this.onClientUpdateUserBlob);
+        FileStore.off('clientUpdateChatBlob', this.onClientUpdateChatBlob);
+        FileStore.off('clientUpdateUserBlob', this.onClientUpdateUserBlob);
     }
 
     onClientUpdateChatBlob = update => {
@@ -86,7 +86,6 @@ class ProfileMediaViewerContent extends React.Component {
         const blob = FileStore.getBlob(file.id) || file.blob;
         const src = FileStore.getBlobUrl(blob);
 
-        console.log('img.render ', src);
         return (
             <div className='media-viewer-content'>
                 <img className='media-viewer-content-image' src={src} alt='' onClick={this.handleContentClick} />

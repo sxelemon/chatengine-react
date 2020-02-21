@@ -15,3 +15,19 @@ export function viewMessages(chatId, messageIds, forceRead) {
         force_read: forceRead
     });
 }
+
+export function pinMessage(chatId, messageId, disableNotification = false) {
+    TdLibController.send({
+        '@type': 'pinChatMessage',
+        chat_id: chatId,
+        message_id: messageId,
+        disable_notification: disableNotification
+    });
+}
+
+export function unpinMessage(chatId) {
+    TdLibController.send({
+        '@type': 'unpinChatMessage',
+        chat_id: chatId
+    });
+}

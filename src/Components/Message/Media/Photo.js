@@ -20,12 +20,21 @@ class Photo extends React.Component {
     constructor(props) {
         super(props);
 
-        const { photo, size, thumbnailSize } = props;
+        this.state = {};
+    }
 
-        this.state = {
-            photoSize: getSize(photo.sizes, size),
-            thumbSize: getSize(photo.sizes, thumbnailSize)
-        };
+    static getDerivedStateFromProps(props, state) {
+        const { photo, size, thumbnailSize } = props;
+        if (photo !== state.prevPhoto) {
+            return {
+                prevPhoto: photo,
+                photoSize: getSize(photo.sizes, size),
+                thumbSize: getSize(photo.sizes, thumbnailSize),
+                minithumbnail: photo ? photo.minithumbnail : null
+            };
+        }
+
+        return null;
     }
 
     componentDidMount() {
@@ -33,7 +42,7 @@ class Photo extends React.Component {
     }
 
     componentWillUnmount() {
-        FileStore.removeListener('clientUpdatePhotoBlob', this.onClientUpdatePhotoBlob);
+        FileStore.off('clientUpdatePhotoBlob', this.onClientUpdatePhotoBlob);
     }
 
     onClientUpdatePhotoBlob = update => {
@@ -48,16 +57,17 @@ class Photo extends React.Component {
     };
 
     render() {
-        const { displaySize, openMedia, showProgress, style } = this.props;
-        const { thumbSize, photoSize } = this.state;
+        const { className, displaySize, openMedia, showProgress, title, caption, type, style } = this.props;
+        const { thumbSize, photoSize, minithumbnail } = this.state;
 
         if (!photoSize) return null;
 
-        const src = getSrc(photoSize.photo);
+        const miniSrc = minithumbnail ? 'data:image/jpeg;base64, ' + minithumbnail.data : null;
         const thumbSrc = getSrc(thumbSize ? thumbSize.photo : null);
-        const isBlurred = isBlurredThumbnail(thumbSize);
+        const src = getSrc(photoSize.photo);
+        const isBlurred = (!thumbSrc && miniSrc) || isBlurredThumbnail(thumbSize);
 
-        const fitPhotoSize = getFitSize(photoSize, displaySize);
+        const fitPhotoSize = getFitSize(photoSize, displaySize, false);
         if (!fitPhotoSize) return null;
 
         const photoStyle = {
@@ -66,15 +76,26 @@ class Photo extends React.Component {
             ...style
         };
 
+        const hasSrc = Boolean(src || thumbSrc || miniSrc);
+
         return (
-            <div className='photo' style={photoStyle} onClick={openMedia}>
-                {src ? (
-                    <img className='photo-image' draggable={false} src={src} alt='' />
-                ) : (
+            <div
+                className={classNames(className, 'photo', {
+                    'photo-big': type === 'message',
+                    'photo-title': title,
+                    'photo-caption': caption,
+                    pointer: openMedia
+                })}
+                style={photoStyle}
+                onClick={openMedia}>
+                {hasSrc && (
                     <img
-                        className={classNames('photo-image', { 'media-blurred': isBlurred })}
+                        className={classNames('photo-image', {
+                            'media-blurred': !src && isBlurred,
+                            'media-mini-blurred': !src && !thumbSrc && isBlurred
+                        })}
                         draggable={false}
-                        src={thumbSrc}
+                        src={src || thumbSrc || miniSrc}
                         alt=''
                     />
                 )}
@@ -85,8 +106,8 @@ class Photo extends React.Component {
 }
 
 Photo.propTypes = {
-    chatId: PropTypes.number.isRequired,
-    messageId: PropTypes.number.isRequired,
+    chatId: PropTypes.number,
+    messageId: PropTypes.number,
     photo: PropTypes.object.isRequired,
     openMedia: PropTypes.func,
     showProgress: PropTypes.bool,

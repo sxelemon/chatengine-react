@@ -7,51 +7,72 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import ReplyIcon from '@material-ui/icons/Reply';
-import CloseIcon from '@material-ui/icons/Close';
+import { withTranslation } from 'react-i18next';
+import CloseIcon from '../../Assets/Icons/Close';
 import IconButton from '@material-ui/core/IconButton';
-import withStyles from '@material-ui/core/styles/withStyles';
 import Reply from '../Message/Reply';
+import MessageStore from '../../Stores/MessageStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './InputBoxHeader.css';
 
-const styles = theme => ({
-    replyIcon: {
-        padding: 12,
-        color: theme.palette.primary.main
-    },
-    closeIconButton: {
-        margin: 0
-    }
-});
-
 class InputBoxHeader extends React.Component {
+    componentDidMount() {
+        MessageStore.on('updateMessageContent', this.onUpdateMessageContent);
+    }
+
+    componentWillUnmount() {
+        MessageStore.off('updateMessageContent', this.onUpdateMessageContent);
+    }
+
+    onUpdateMessageContent = update => {
+        const { chatId, messageId, editMessageId } = this.props;
+        const { chat_id, message_id } = update;
+
+        if (chatId !== chat_id) return;
+        if (messageId !== message_id && editMessageId !== message_id) return;
+
+        this.forceUpdate();
+    };
+
     handleClose = () => {
-        TdLibController.clientUpdate({
-            '@type': 'clientUpdateReply',
-            chatId: this.props.chatId,
-            messageId: 0
-        });
+        const { chatId, editMessageId } = this.props;
+
+        if (editMessageId) {
+            TdLibController.clientUpdate({
+                '@type': 'clientUpdateEditMessage',
+                chatId,
+                messageId: 0
+            });
+        } else {
+            TdLibController.clientUpdate({
+                '@type': 'clientUpdateReply',
+                chatId,
+                messageId: 0
+            });
+        }
     };
 
     render() {
-        const { classes, chatId, messageId } = this.props;
+        const { chatId, messageId, editMessageId, t, onClick } = this.props;
         if (!chatId) return null;
-        if (!messageId) return null;
+        if (!messageId && !editMessageId) return null;
 
         return (
             <div className='inputbox-header'>
                 <div className='inputbox-header-left-column'>
-                    <ReplyIcon className={classes.replyIcon} />
-                </div>
-                <div className='inputbox-header-middle-column'>
-                    <Reply chatId={chatId} messageId={messageId} />
-                </div>
-                <div className='inputbox-header-right-column'>
-                    <IconButton className={classes.closeIconButton} aria-label='Close' onClick={this.handleClose}>
+                    <IconButton className='inputbox-icon-button' aria-label='Close' onClick={this.handleClose}>
                         <CloseIcon />
                     </IconButton>
                 </div>
+                <div className='inputbox-header-middle-column'>
+                    <Reply
+                        chatId={chatId}
+                        messageId={messageId || editMessageId}
+                        title={editMessageId ? t('EditMessage') : null}
+                        onClick={onClick}
+                    />
+                </div>
+                <div className='inputbox-header-right-column' />
             </div>
         );
     }
@@ -59,7 +80,9 @@ class InputBoxHeader extends React.Component {
 
 InputBoxHeader.propTypes = {
     chatId: PropTypes.number.isRequired,
-    messageId: PropTypes.number.isRequired
+    messageId: PropTypes.number.isRequired,
+    editMessageId: PropTypes.number,
+    onClick: PropTypes.func
 };
 
-export default withStyles(styles)(InputBoxHeader);
+export default withTranslation()(InputBoxHeader);

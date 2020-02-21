@@ -8,8 +8,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
-import { compose } from 'recompose';
-import withStyles from '@material-ui/core/styles/withStyles';
 import { withTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
@@ -33,12 +31,6 @@ import MessageStore from '../../../Stores/MessageStore';
 import TdLibController from '../../../Controllers/TdLibController';
 import './SharedVideo.css';
 
-const styles = theme => ({
-    sharedPhotoContent: {
-        // backgroundColor: theme.palette.type === 'dark' ? theme.palette.background.paper : theme.palette.background.default
-    }
-});
-
 class SharedVideo extends React.Component {
     constructor(props) {
         super(props);
@@ -57,7 +49,7 @@ class SharedVideo extends React.Component {
     }
 
     componentWillUnmount() {
-        FileStore.removeListener('clientUpdateVideoThumbnailBlob', this.onClientUpdateVideoThumbnailBlob);
+        FileStore.off('clientUpdateVideoThumbnailBlob', this.onClientUpdateVideoThumbnailBlob);
     }
 
     onClientUpdateVideoThumbnailBlob = update => {
@@ -156,8 +148,8 @@ class SharedVideo extends React.Component {
     };
 
     render() {
-        const { chatId, messageId, classes, openMedia, style, showOpenMessage, t } = this.props;
-        const { thumbnail, video, width, height, duration } = this.props.video;
+        const { chatId, messageId, openMedia, style, showOpenMessage, t } = this.props;
+        const { minithumbnail, thumbnail, video, width, height, duration } = this.props.video;
         const { contextMenu, left, top, openDeleteDialog, revoke } = this.state;
 
         const message = MessageStore.get(chatId, messageId);
@@ -166,15 +158,19 @@ class SharedVideo extends React.Component {
         const { can_be_forwarded, can_be_deleted_only_for_self, can_be_deleted_for_all_users } = message;
         const count = 1;
 
+        const miniSrc = minithumbnail ? 'data:image/jpeg;base64, ' + minithumbnail.data : null;
         const thumbSrc = getSrc(thumbnail ? thumbnail.photo : null);
-        const isBlurred = isBlurredThumbnail(thumbnail, THUMBNAIL_BLURRED_SIZE_90);
+        const isBlurred = thumbSrc ? isBlurredThumbnail(thumbnail, THUMBNAIL_BLURRED_SIZE_90) : Boolean(miniSrc);
 
         return (
             <div className='shared-photo' style={style} onClick={openMedia} onContextMenu={this.handleContextMenu}>
                 <div className='shared-video-wrapper'>
                     <div
-                        className={classNames('shared-video-content', { 'media-blurred': isBlurred })}
-                        style={{ backgroundImage: `url(${thumbSrc})` }}
+                        className={classNames('shared-video-content', {
+                            'media-blurred': isBlurred,
+                            'media-mini-blurred': !thumbSrc && isBlurred
+                        })}
+                        style={{ backgroundImage: `url(${thumbSrc || miniSrc})` }}
                     />
                     <div className='shared-video-meta'>{getDurationString(duration)}</div>
                 </div>
@@ -193,7 +189,7 @@ class SharedVideo extends React.Component {
                     }}
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => e.stopPropagation()}>
-                    <MenuList classes={{ root: classes.menuListRoot }}>
+                    <MenuList>
                         {showOpenMessage && <MenuItem onClick={this.handleOpenMessage}>{t('GoToMessage')}</MenuItem>}
                         {can_be_forwarded && <MenuItem onClick={this.handleForward}>{t('Forward')}</MenuItem>}
                         {(can_be_deleted_only_for_self || can_be_deleted_for_all_users) && (
@@ -220,7 +216,9 @@ class SharedVideo extends React.Component {
                                     <Checkbox checked={revoke} onChange={this.handleRevokeChange} color='primary' />
                                 }
                                 label={
-                                    isPrivateChat(chatId) ? `Delete for ${getChatShortTitle(chatId)}` : 'Delete for all'
+                                    isPrivateChat(chatId)
+                                        ? `Delete for ${getChatShortTitle(chatId, false, t)}`
+                                        : 'Delete for all'
                                 }
                             />
                         )}
@@ -256,9 +254,4 @@ SharedVideo.defaultProps = {
     thumbnailSize: PHOTO_THUMBNAIL_SIZE
 };
 
-const enhance = compose(
-    withStyles(styles, { withTheme: true }),
-    withTranslation()
-);
-
-export default enhance(SharedVideo);
+export default withTranslation()(SharedVideo);

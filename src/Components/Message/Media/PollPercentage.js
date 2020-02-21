@@ -7,16 +7,8 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-import withStyles from '@material-ui/core/styles/withStyles';
 import { ANIMATION_DURATION_200MS } from './../../../Constants';
 import './PollPercentage.css';
-
-const styles = theme => ({
-    pollPercentageSubtitle: {
-        color: theme.palette.text.secondary
-    }
-});
 
 class PollPercentage extends React.Component {
     constructor(props) {
@@ -39,8 +31,6 @@ class PollPercentage extends React.Component {
         const { closed, theme, value } = this.props;
         const { animated } = this.state;
 
-        console.log('PollPercentage.shouldComponentUpdate start');
-
         if (closed !== nextProps.closed) {
             return true;
         }
@@ -57,7 +47,6 @@ class PollPercentage extends React.Component {
             return true;
         }
 
-        console.log('PollPercentage.shouldComponentUpdate end with false');
         return false;
     }
 
@@ -86,7 +75,6 @@ class PollPercentage extends React.Component {
     }
 
     updateAnimation = () => {
-        console.log('PollPercentage.updateAnimation');
         this.stopAnimation();
 
         this.handle = requestAnimationFrame(this.onAnimationFrame);
@@ -101,7 +89,6 @@ class PollPercentage extends React.Component {
 
     onAnimationFrame = () => {
         const { startTime, from, to } = this.state;
-        console.log('PollPercentage.onAnimationFrame');
 
         const timePassed = Date.now() - startTime;
 
@@ -116,18 +103,19 @@ class PollPercentage extends React.Component {
     };
 
     render() {
-        const { chosen, classes, closed, onClick } = this.props;
+        const { chosen, closed, onClick } = this.props;
         const { animated } = this.state;
 
         return (
-            <div className={classNames('poll-percentage', { [classes.pollPercentageSubtitle]: !chosen })}>
-                {!closed && chosen ? (
-                    <a className='poll-percentage-action' onClick={onClick}>
-                        {animated + '%'}
-                    </a>
-                ) : (
-                    <>{animated + '%'}</>
-                )}
+            <div className='poll-percentage'>
+                {/*{!closed && chosen ? (*/}
+                {/*    <a className='poll-percentage-action' onClick={onClick}>*/}
+                {/*        {animated + '%'}*/}
+                {/*    </a>*/}
+                {/*) : (*/}
+                {/*    <>{animated + '%'}</>*/}
+                {/*)}*/}
+                <>{animated + '%'}</>
             </div>
         );
     }
@@ -140,4 +128,4 @@ PollPercentage.propTypes = {
     onClick: PropTypes.func
 };
 
-export default withStyles(styles, { withTheme: true })(PollPercentage);
+export default PollPercentage;

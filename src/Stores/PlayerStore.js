@@ -5,8 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { EventEmitter } from 'events';
-import Cookies from 'universal-cookie';
+import EventEmitter from './EventEmitter';
 import { getSearchMessagesFilter, openMedia } from '../Utils/Message';
 import { PLAYER_PLAYBACKRATE_NORMAL, PLAYER_VOLUME_NORMAL } from '../Constants';
 import MessageStore from './MessageStore';
@@ -25,14 +24,7 @@ class PlayerStore extends EventEmitter {
     constructor() {
         super();
 
-        const cookies = new Cookies();
-        let playbackRate = cookies.get('playbackRate');
-        let volume = cookies.get('volume');
-        playbackRate =
-            playbackRate && Number(playbackRate) >= 1 && Number(playbackRate) <= 2
-                ? Number(playbackRate)
-                : PLAYER_PLAYBACKRATE_NORMAL;
-        volume = volume && Number(volume) >= 0 && Number(volume) <= 1 ? Number(volume) : PLAYER_VOLUME_NORMAL;
+        const { playbackRate, volume } = this.loadPlayerSettings();
 
         this.playbackRate = playbackRate;
         this.volume = volume;
@@ -42,7 +34,6 @@ class PlayerStore extends EventEmitter {
         this.reset();
 
         this.addTdLibListener();
-        this.setMaxListeners(Infinity);
     }
 
     reset = () => {
@@ -50,16 +41,18 @@ class PlayerStore extends EventEmitter {
         this.message = null;
         this.time = null;
         this.videoStream = null;
+        this.instantView = null;
+        this.pageBlock = null;
     };
 
     addTdLibListener = () => {
-        TdLibController.addListener('update', this.onUpdate);
-        TdLibController.addListener('clientUpdate', this.onClientUpdate);
+        TdLibController.on('update', this.onUpdate);
+        TdLibController.on('clientUpdate', this.onClientUpdate);
     };
 
     removeTdLibListener = () => {
-        TdLibController.removeListener('update', this.onUpdate);
-        TdLibController.removeListener('clientUpdate', this.onClientUpdate);
+        TdLibController.off('update', this.onUpdate);
+        TdLibController.off('clientUpdate', this.onClientUpdate);
     };
 
     onUpdate = async update => {
@@ -88,28 +81,50 @@ class PlayerStore extends EventEmitter {
         });
     };
 
+    loadPlayerSettings() {
+        const player = localStorage.getItem('player') || {};
+
+        let { playbackRate, volume } = player;
+
+        playbackRate =
+            playbackRate && Number(playbackRate) >= 1 && Number(playbackRate) <= 2
+                ? Number(playbackRate)
+                : PLAYER_PLAYBACKRATE_NORMAL;
+        volume = volume && Number(volume) >= 0 && Number(volume) <= 1 ? Number(volume) : PLAYER_VOLUME_NORMAL;
+
+        return { playbackRate, volume };
+    }
+
+    savePlayerSettings() {
+        const { volume, playbackRate } = this;
+
+        localStorage.setItem('player', JSON.stringify({ volume, playbackRate }));
+    }
+
     onClientUpdate = update => {
         switch (update['@type']) {
             case 'clientUpdateMediaClose': {
-                this.playlist = null;
-                this.message = null;
-                this.time = null;
-                this.videoStream = null;
+                this.reset();
 
                 this.emit(update['@type'], update);
                 break;
             }
             case 'clientUpdateMediaActive': {
-                const { chatId, messageId } = update;
+                const { chatId, messageId, instantView, pageBlock } = update;
 
                 const message = MessageStore.get(chatId, messageId);
-                if (!message) return;
+                if (message) {
+                    this.message = message;
+                    this.emit(update['@type'], update);
+                    this.getPlaylist(chatId, messageId);
 
-                this.message = message;
+                    return;
+                } else if (instantView && pageBlock) {
+                    this.instantView = instantView;
+                    this.pageBlock = pageBlock;
+                    this.emit(update['@type'], update);
+                }
 
-                this.emit(update['@type'], update);
-
-                this.getPlaylist(chatId, messageId);
                 break;
             }
             case 'clientUpdateMediaVolume': {
@@ -117,8 +132,7 @@ class PlayerStore extends EventEmitter {
 
                 this.volume = volume;
 
-                const cookies = new Cookies();
-                cookies.set('volume', volume);
+                this.savePlayerSettings();
 
                 this.emit(update['@type'], update);
                 break;
@@ -144,8 +158,7 @@ class PlayerStore extends EventEmitter {
 
                 this.playbackRate = playbackRate;
 
-                const cookies = new Cookies();
-                cookies.set('playbackRate', playbackRate);
+                this.savePlayerSettings();
 
                 this.emit(update['@type'], update);
                 break;

@@ -7,10 +7,7 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import copy from 'copy-to-clipboard';
-import classNames from 'classnames';
-import { compose } from 'recompose';
-import withStyles from '@material-ui/core/styles/withStyles';
+import { compose } from '../../Utils/HOC';
 import { withTranslation } from 'react-i18next';
 import { withSnackbar } from 'notistack';
 import Button from '@material-ui/core/Button';
@@ -18,14 +15,13 @@ import IconButton from '@material-ui/core/IconButton';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogTitle from '@material-ui/core/DialogTitle';
-import SearchIcon from '@material-ui/icons/Search';
-import CloseIcon from '@material-ui/icons/Close';
-import SpeedDialIcon from '@material-ui/lab/SpeedDialIcon';
+import CloseIcon from '../../Assets/Icons/Close';
 import ForwardTargetChat from '../Tile/ForwardTargetChat';
+import { copy } from '../../Utils/Text';
 import { canSendMessages, getChatTitle, getChatUsername, isSupergroup } from '../../Utils/Chat';
 import { loadChatsContent } from '../../Utils/File';
 import { getCyrillicInput, getLatinInput } from '../../Utils/Language';
-import { borderStyle } from '../Theme';
+import { clearSelection } from '../../Actions/Client';
 import { NOTIFICATION_AUTO_HIDE_DURATION_MS } from '../../Constants';
 import ApplicationStore from '../../Stores/ApplicationStore';
 import FileStore from '../../Stores/FileStore';
@@ -33,24 +29,6 @@ import MessageStore from '../../Stores/MessageStore';
 import UserStore from '../../Stores/UserStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './ForwardDialog.css';
-
-const styles = theme => ({
-    close: {
-        padding: theme.spacing.unit / 2
-    },
-    dialog: {
-        color: theme.palette.text.primary
-    },
-    dialogContent: {
-        padding: 0,
-        display: 'flex',
-        position: 'relative'
-    },
-    searchList: {
-        background: theme.palette.background.paper
-    },
-    ...borderStyle(theme)
-});
 
 class ForwardDialog extends React.Component {
     constructor(props) {
@@ -149,7 +127,7 @@ class ForwardDialog extends React.Component {
     handleScheduledAction = (key, message, action) => {
         if (!key) return;
 
-        const { enqueueSnackbar, classes } = this.props;
+        const { enqueueSnackbar } = this.props;
         if (!enqueueSnackbar) return;
 
         const TRANSITION_DELAY = 150;
@@ -163,7 +141,7 @@ class ForwardDialog extends React.Component {
                         key='close'
                         aria-label='Close'
                         color='inherit'
-                        className={classes.close}
+                        className='notification-close-button'
                         onClick={() => ApplicationStore.removeScheduledAction(key)}>
                         <CloseIcon />
                     </IconButton>
@@ -194,33 +172,42 @@ class ForwardDialog extends React.Component {
 
     handleSend = () => {
         this.handleClose();
+        clearSelection();
 
-        const { chatId, messageIds, photoSize, link } = this.props;
-        if (!chatId && !messageIds && !messageIds && !photoSize && !link) return;
+        const { chatId, messageIds, inputMessageContent } = this.props;
+        if (!chatId && !messageIds && !inputMessageContent) return;
 
         const text = this.getInnerText(this.messageRef.current);
 
         this.targetChats.forEach(targetChatId => {
-            if (link) {
+            if (inputMessageContent) {
                 if (text) {
-                    TdLibController.send({
-                        '@type': 'sendMessage',
-                        chat_id: targetChatId,
-                        reply_to_message_id: 0,
-                        disable_notifications: false,
-                        from_background: false,
-                        reply_markup: null,
-                        input_message_content: {
-                            '@type': 'inputMessageText',
-                            text: {
-                                '@type': 'formattedText',
-                                text: text,
-                                entities: null
-                            },
-                            disable_web_page_preview: true,
-                            clear_draft: false
-                        }
-                    });
+                    if ('caption' in inputMessageContent) {
+                        inputMessageContent.caption = {
+                            '@type': 'formattedText',
+                            text,
+                            entities: null
+                        };
+                    } else {
+                        TdLibController.send({
+                            '@type': 'sendMessage',
+                            chat_id: targetChatId,
+                            reply_to_message_id: 0,
+                            disable_notifications: false,
+                            from_background: false,
+                            reply_markup: null,
+                            input_message_content: {
+                                '@type': 'inputMessageText',
+                                text: {
+                                    '@type': 'formattedText',
+                                    text,
+                                    entities: null
+                                },
+                                disable_web_page_preview: false,
+                                clear_draft: false
+                            }
+                        });
+                    }
                 }
 
                 TdLibController.send({
@@ -230,22 +217,13 @@ class ForwardDialog extends React.Component {
                     disable_notifications: false,
                     from_background: false,
                     reply_markup: null,
-                    input_message_content: {
-                        '@type': 'inputMessageText',
-                        text: {
-                            '@type': 'formattedText',
-                            text: link,
-                            entities: null
-                        },
-                        disable_web_page_preview: true,
-                        clear_draft: false
-                    }
+                    input_message_content: inputMessageContent
                 });
 
                 return;
             }
 
-            const size = photoSize || this.getForwardPhotoSize(chatId, messageIds);
+            const size = this.getForwardPhotoSize(chatId, messageIds);
             if (size) {
                 const { width, height, photo } = size;
 
@@ -268,7 +246,7 @@ class ForwardDialog extends React.Component {
                         height: height,
                         caption: {
                             '@type': 'formattedText',
-                            text: text,
+                            text,
                             entities: null
                         },
                         ttl: 0
@@ -290,10 +268,10 @@ class ForwardDialog extends React.Component {
                         '@type': 'inputMessageText',
                         text: {
                             '@type': 'formattedText',
-                            text: text,
+                            text,
                             entities: null
                         },
-                        disable_web_page_preview: true,
+                        disable_web_page_preview: false,
                         clear_draft: false
                     }
                 });
@@ -318,18 +296,17 @@ class ForwardDialog extends React.Component {
             this.targetChats.set(chatId, chatId);
         }
 
-        console.log(this.targetChats);
+        // console.log(this.targetChats);
 
         this.forceUpdate();
     };
 
-    getInnerText = div => {
-        const innerText = div.innerText;
-        const innerHTML = div.innerHTML;
-
-        if (innerText && innerText === '\n' && innerHTML && (innerHTML === '<br>' || innerHTML === '<div><br></div>')) {
-            div.innerHTML = '';
+    getInnerText = element => {
+        const { innerHTML } = element;
+        if (innerHTML === '<br>' || innerHTML === '<div><br></div>') {
+            element.innerHTML = null;
         }
+        const { innerText } = element;
 
         return innerText;
     };
@@ -340,17 +317,20 @@ class ForwardDialog extends React.Component {
         }
     };
 
-    handleSearchKeyUp = () => {
+    handleSearchKeyUp = async () => {
         const { chatIds, savedMessages } = this.state;
 
-        const innerHTML = this.searchRef.current.innerHTML;
-        if (innerHTML && (innerHTML === '<br>' || innerHTML === '<div><br></div>')) {
-            this.searchRef.current.innerHTML = '';
+        const element = this.searchRef.current;
+        if (!element) return;
+
+        const { innerHTML } = element;
+        if (innerHTML === '<br>' || innerHTML === '<div><br></div>') {
+            element.innerHTML = null;
         }
 
-        const innerText = this.getInnerText(this.searchRef.current).trim();
+        const innerText = this.getInnerText(element).trim();
         if (!innerText) {
-            this.setState({ searchText: null, searchResults: [] });
+            this.setState({ searchText: null, searchResults: [], globalSearchResults: [] });
             return;
         }
 
@@ -358,7 +338,7 @@ class ForwardDialog extends React.Component {
         const cyrillicText = getCyrillicInput(innerText);
 
         const chatsSource = savedMessages
-            ? [savedMessages.id].concat(chatIds.filter(x => x !== savedMessages.id)).filter(x => canSendMessages(x))
+            ? [savedMessages.id].concat(chatIds.filter(x => x !== savedMessages.id && canSendMessages(x)))
             : chatIds;
 
         const searchResults = chatsSource.filter(
@@ -368,21 +348,38 @@ class ForwardDialog extends React.Component {
                 (cyrillicText && this.hasSearchText(x, cyrillicText))
         );
 
-        this.setState({ searchText: innerText, searchResults: searchResults });
+        this.setState({ searchText: innerText, searchResults });
+
+        const result = await TdLibController.send({
+            '@type': 'searchChatsOnServer',
+            query: innerText,
+            limit: 100
+        });
+
+        if (this.state.searchText !== innerText) {
+            return;
+        }
+
+        this.setState({
+            globalSearchResults: result.chat_ids
+        });
     };
 
     handleSearchPaste = event => {
         const plainText = event.clipboardData.getData('text/plain');
         if (plainText) {
             event.preventDefault();
-            document.execCommand('insertHTML', false, plainText);
+            document.execCommand('insertText', false, plainText);
         }
     };
 
     handleMessageKeyUp = () => {
-        const innerHTML = this.messageRef.current.innerHTML;
-        if (innerHTML && (innerHTML === '<br>' || innerHTML === '<div><br></div>')) {
-            this.messageRef.current.innerHTML = '';
+        const element = this.messageRef.current;
+        if (!element) return;
+
+        const { innerHTML } = element;
+        if (innerHTML === '<br>' || innerHTML === '<div><br></div>') {
+            element.innerHTML = null;
         }
     };
 
@@ -390,7 +387,7 @@ class ForwardDialog extends React.Component {
         const plainText = event.clipboardData.getData('text/plain');
         if (plainText) {
             event.preventDefault();
-            document.execCommand('insertHTML', false, plainText);
+            document.execCommand('insertText', false, plainText);
         }
     };
 
@@ -429,11 +426,18 @@ class ForwardDialog extends React.Component {
     };
 
     render() {
-        const { classes, t } = this.props;
-        const { chatIds, searchText, searchResults, savedMessages, publicMessageLink } = this.state;
+        const { t } = this.props;
+        const {
+            chatIds,
+            searchText,
+            searchResults,
+            globalSearchResults,
+            savedMessages,
+            publicMessageLink
+        } = this.state;
 
         const chatsSource = savedMessages
-            ? [savedMessages.id].concat(chatIds.filter(x => x !== savedMessages.id)).filter(x => canSendMessages(x))
+            ? [savedMessages.id].concat(chatIds.filter(x => x !== savedMessages.id && canSendMessages(x)))
             : chatIds;
 
         const chats = chatsSource.map(x => (
@@ -445,14 +449,21 @@ class ForwardDialog extends React.Component {
             />
         ));
 
-        const foundChats = (searchResults || []).map(x => (
-            <ForwardTargetChat
-                key={x}
-                chatId={x}
-                selected={this.targetChats.has(x)}
-                onSelect={() => this.handleChangeSelection(x)}
-            />
-        ));
+        const searchResultsMap = new Map((searchResults || []).map(x => [x, x]));
+        const filteredResults = (globalSearchResults || []).filter(
+            x => x !== savedMessages.id && canSendMessages(x) && !searchResultsMap.has(x)
+        );
+
+        const foundChats = (searchResults || [])
+            .concat(filteredResults)
+            .map(x => (
+                <ForwardTargetChat
+                    key={x}
+                    chatId={x}
+                    selected={this.targetChats.has(x)}
+                    onSelect={() => this.handleChangeSelection(x)}
+                />
+            ));
 
         return (
             <Dialog
@@ -460,7 +471,7 @@ class ForwardDialog extends React.Component {
                 onClose={this.handleClose}
                 aria-labelledby='forward-dialog-title'
                 aria-describedby='forward-dialog-description'
-                className={classes.dialog}>
+                className='forward-dialog'>
                 <DialogTitle id='forward-dialog-title'>{t('ShareSendTo')}</DialogTitle>
                 <div
                     ref={this.searchRef}
@@ -472,11 +483,9 @@ class ForwardDialog extends React.Component {
                     onKeyUp={this.handleSearchKeyUp}
                     onPaste={this.handleSearchPaste}
                 />
-                <div className={classNames(classes.borderColor, 'forward-dialog-content')}>
+                <div className='forward-dialog-content'>
                     <div className='forward-dialog-list'>{chats}</div>
-                    {searchText && (
-                        <div className={classNames(classes.searchList, 'forward-dialog-search-list')}>{foundChats}</div>
-                    )}
+                    {searchText && <div className='forward-dialog-search-list'>{foundChats}</div>}
                 </div>
                 {this.targetChats.size > 0 && (
                     <div
@@ -512,11 +521,10 @@ class ForwardDialog extends React.Component {
 ForwardDialog.propTypes = {
     chatId: PropTypes.number,
     messageIds: PropTypes.array,
-    photoSize: PropTypes.object
+    inputMessageContent: PropTypes.object
 };
 
 const enhance = compose(
-    withStyles(styles, { withTheme: true }),
     withTranslation(),
     withSnackbar
 );

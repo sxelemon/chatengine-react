@@ -1,14 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import SaveIcon from '@material-ui/icons/GetApp';
+import SaveIcon from '../../Assets/Icons/Download';
 import MediaViewerFooterButton from './MediaViewerFooterButton';
 import FileStore from '../../Stores/FileStore';
 import './MediaViewerFooterButton.css';
-
-const iconStyle = {
-    padding: 20,
-    color: 'white'
-};
 
 class MediaViewerDownloadButton extends React.Component {
     constructor(props) {
@@ -48,12 +43,12 @@ class MediaViewerDownloadButton extends React.Component {
     }
 
     componentWillUnmount() {
-        FileStore.removeListener('clientUpdateAnimationBlob', this.onClientUpdateMediaBlob);
-        FileStore.removeListener('clientUpdateChatBlob', this.onClientUpdateMediaBlob);
-        FileStore.removeListener('clientUpdateDocumentBlob', this.onClientUpdateMediaBlob);
-        FileStore.removeListener('clientUpdatePhotoBlob', this.onClientUpdateMediaBlob);
-        FileStore.removeListener('clientUpdateUserBlob', this.onClientUpdateMediaBlob);
-        FileStore.removeListener('clientUpdateVideoBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdateAnimationBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdateChatBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdateDocumentBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdatePhotoBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdateUserBlob', this.onClientUpdateMediaBlob);
+        FileStore.off('clientUpdateVideoBlob', this.onClientUpdateMediaBlob);
     }
 
     onClientUpdateMediaBlob = update => {
@@ -81,12 +76,12 @@ class MediaViewerDownloadButton extends React.Component {
     };
 
     render() {
-        const { title } = this.props;
+        const { title, children } = this.props;
         const { disabled } = this.state;
 
         return (
             <MediaViewerFooterButton disabled={disabled} title={title} onClick={this.handleClick}>
-                <SaveIcon style={iconStyle} />
+                {children || <SaveIcon />}
             </MediaViewerFooterButton>
         );
     }

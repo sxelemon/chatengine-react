@@ -11,33 +11,29 @@ import classNames from 'classnames';
 import { withTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
+import CloseIcon from '../../Assets/Icons/Close';
+import DeleteIcon from '../../Assets/Icons/Delete';
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
-import CloseIcon from '@material-ui/icons/Close';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
-import NavigateBeforeIcon from '@material-ui/icons/NavigateBefore';
-import ReplyIcon from '@material-ui/icons/Reply';
-import DeleteIcon from '@material-ui/icons/Delete';
-import InvertColorsIcon from '@material-ui/icons/InvertColors';
-import SlowMotionVideoIcon from '@material-ui/icons/SlowMotionVideo';
-import MediaViewerControl from '../Tile/MediaViewerControl';
+import NavigateBeforeIcon from '../../Assets/Icons/Left';
+import ReplyIcon from '../../Assets/Icons/Share';
+import MediaInfo from '../Tile/MediaInfo';
 import MediaViewerContent from './MediaViewerContent';
 import MediaViewerButton from './MediaViewerButton';
 import MediaViewerFooterText from './MediaViewerFooterText';
 import MediaViewerFooterButton from './MediaViewerFooterButton';
 import MediaViewerDownloadButton from './MediaViewerDownloadButton';
 import { setMediaViewerContent } from '../../Actions/Client';
-import { getSize } from '../../Utils/Common';
 import {
     cancelPreloadMediaViewerContent,
     getMediaFile,
     loadMediaViewerContent,
     preloadMediaViewerContent,
-    saveOrDownload
+    saveMedia
 } from '../../Utils/File';
 import {
     filterDuplicateMessages,
@@ -47,25 +43,10 @@ import {
     isVideoMessage
 } from '../../Utils/Message';
 import { between } from '../../Utils/Common';
-import { PHOTO_SIZE, PHOTO_BIG_SIZE, MEDIA_SLICE_LIMIT } from '../../Constants';
+import { PHOTO_BIG_SIZE, MEDIA_SLICE_LIMIT } from '../../Constants';
 import MessageStore from '../../Stores/MessageStore';
-import FileStore from '../../Stores/FileStore';
-import ApplicationStore from '../../Stores/ApplicationStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './MediaViewer.css';
-
-const forwardIconStyle = {
-    padding: 20,
-    transform: 'scaleX(-1)'
-};
-
-const iconStyle = {
-    padding: 20
-};
-
-const navigationIconStyle = {
-    padding: 35
-};
 
 class MediaViewer extends React.Component {
     constructor(props) {
@@ -156,9 +137,9 @@ class MediaViewer extends React.Component {
 
     componentWillUnmount() {
         document.removeEventListener('keydown', this.onKeyDown, false);
-        MessageStore.removeListener('updateDeleteMessages', this.onUpdateDeleteMessages);
-        MessageStore.removeListener('updateNewMessage', this.onUpdateNewMessage);
-        MessageStore.removeListener('updateMessageContent', this.onUpdateMessageContent);
+        MessageStore.off('updateDeleteMessages', this.onUpdateDeleteMessages);
+        MessageStore.off('updateNewMessage', this.onUpdateNewMessage);
+        MessageStore.off('updateMessageContent', this.onUpdateMessageContent);
     }
 
     onKeyDown = event => {
@@ -412,65 +393,6 @@ class MediaViewer extends React.Component {
         }
     };
 
-    saveAnimation = (animation, message) => {
-        if (!message) return;
-        const { chat_id, id } = message;
-
-        if (!animation) return;
-
-        const { animation: file, file_name } = animation;
-        if (!file) return;
-
-        const { id: fileId } = file;
-
-        saveOrDownload(file, file_name || id, message, () => FileStore.updateAnimationBlob(chat_id, id, fileId));
-    };
-
-    saveDocument = (document, message) => {
-        if (!message) return;
-        const { chat_id, id } = message;
-
-        if (!document) return;
-
-        const { document: file, file_name } = document;
-        if (!file) return;
-
-        const { id: fileId } = file;
-
-        saveOrDownload(file, file_name || id, message, () => FileStore.updateDocumentBlob(chat_id, id, fileId));
-    };
-
-    saveVideo = (video, message) => {
-        if (!message) return;
-        const { chat_id, id } = message;
-
-        if (!video) return;
-
-        const { video: file, file_name } = video;
-        if (!file) return;
-
-        const { id: fileId } = file;
-
-        saveOrDownload(file, file_name || id, message, () => FileStore.updateVideoBlob(chat_id, id, fileId));
-    };
-
-    savePhoto = (photo, message) => {
-        if (!message) return;
-        const { chat_id, id } = message;
-
-        if (!photo) return;
-
-        const photoSize = getSize(photo.sizes, PHOTO_BIG_SIZE);
-        if (!photoSize) return;
-
-        const { photo: file } = photoSize;
-        if (!file) return;
-
-        const { id: fileId } = file;
-
-        saveOrDownload(file, file.id + '.jpg', message, () => FileStore.updatePhotoBlob(chat_id, id, fileId));
-    };
-
     handleSave = () => {
         const { chatId } = this.props;
         const { currentMessageId } = this.state;
@@ -481,29 +403,30 @@ class MediaViewer extends React.Component {
         const { content } = message;
         if (!content) return;
 
+        let media = null;
         switch (content['@type']) {
             case 'messageAnimation': {
                 const { animation } = content;
 
-                this.saveAnimation(animation, message);
+                media = animation;
                 break;
             }
             case 'messageChatChangePhoto': {
                 const { photo } = content;
 
-                this.savePhoto(photo, message);
+                media = photo;
                 break;
             }
             case 'messageDocument': {
                 const { document } = content;
 
-                this.saveDocument(document, message);
+                media = document;
                 break;
             }
             case 'messagePhoto': {
                 const { photo } = content;
 
-                this.savePhoto(photo, message);
+                media = photo;
                 break;
             }
             case 'messageText': {
@@ -513,33 +436,35 @@ class MediaViewer extends React.Component {
                 const { animation, document, photo, video } = web_page;
 
                 if (animation) {
-                    this.saveAnimation(animation, message);
-                    return;
+                    media = animation;
+                    break;
                 }
 
                 if (document) {
-                    this.saveDocument(document, message);
-                    return;
+                    media = document;
+                    break;
                 }
 
                 if (photo) {
-                    this.savePhoto(photo, message);
-                    return;
+                    media = photo;
+                    break;
                 }
 
                 if (video) {
-                    this.saveVideo(video, message);
-                    return;
+                    media = video;
+                    break;
                 }
                 break;
             }
             case 'messageVideo': {
                 const { video } = content;
 
-                this.saveVideo(video, message);
+                media = video;
                 break;
             }
         }
+
+        saveMedia(media, message);
     };
 
     handleForward = () => {
@@ -557,28 +482,6 @@ class MediaViewer extends React.Component {
 
     handleDelete = () => {
         this.handleDialogOpen();
-        return;
-
-        const { chatId, messageId } = this.props;
-        const { currentMessageId } = this.state;
-
-        const message = MessageStore.get(chatId, currentMessageId);
-        if (!message) return;
-        if (!message.content) return;
-
-        const { photo } = message.content;
-        if (photo) {
-            const photoSize = getSize(photo.sizes, PHOTO_BIG_SIZE);
-            if (photoSize) {
-                let file = photoSize.photo;
-                file = FileStore.get(file.id) || file;
-                if (file) {
-                    const store = FileStore.getReadWriteStore();
-
-                    FileStore.deleteLocalFile(store, file);
-                }
-            }
-        }
     };
 
     hasPreviousMedia = index => {
@@ -883,7 +786,7 @@ class MediaViewer extends React.Component {
                 open={deleteConfirmationOpened}
                 onClose={this.handleDialogClose}
                 aria-labelledby='form-dialog-title'>
-                <DialogTitle id='form-dialog-title'>{t('AppName')}</DialogTitle>
+                <DialogTitle id='form-dialog-title'>{t('Confirm')}</DialogTitle>
                 <DialogContent>
                     <DialogContentText>{deleteConfirmationContent}</DialogContentText>
                     {can_be_deleted_for_all_users && (
@@ -921,12 +824,30 @@ class MediaViewer extends React.Component {
 
         return (
             <div className={classNames('media-viewer', background)}>
-                {deleteConfirmation}
+                <div className='media-viewer-footer'>
+                    <MediaInfo chatId={chatId} messageId={currentMessageId} />
+                    <MediaViewerFooterText
+                        title={title}
+                        subtitle={maxCount && index >= 0 ? `${maxCount - index} of ${maxCount}` : null}
+                    />
+                    <MediaViewerDownloadButton title={t('Save')} fileId={fileId} onClick={this.handleSave} />
+                    <MediaViewerFooterButton
+                        title={t('Forward')}
+                        disabled={!canBeForwarded}
+                        onClick={this.handleForward}>
+                        <ReplyIcon />
+                    </MediaViewerFooterButton>
+                    <MediaViewerFooterButton title={t('Delete')} disabled={!canBeDeleted} onClick={this.handleDelete}>
+                        <DeleteIcon />
+                    </MediaViewerFooterButton>
+                    <MediaViewerFooterButton title={t('Close')} onClick={this.handleClose}>
+                        <CloseIcon />
+                    </MediaViewerFooterButton>
+                </div>
                 <div className='media-viewer-wrapper' onClick={this.handlePrevious}>
                     <div className='media-viewer-left-column'>
-                        <div className='media-viewer-button-placeholder' />
                         <MediaViewerButton disabled={!hasPreviousMedia} grow onClick={this.handlePrevious}>
-                            <NavigateBeforeIcon fontSize='large' style={navigationIconStyle} />
+                            <NavigateBeforeIcon />
                         </MediaViewerButton>
                     </div>
 
@@ -941,46 +862,12 @@ class MediaViewer extends React.Component {
                     </div>
 
                     <div className='media-viewer-right-column'>
-                        <MediaViewerButton onClick={this.handleClose}>
-                            <CloseIcon fontSize='large' style={navigationIconStyle} />
-                        </MediaViewerButton>
                         <MediaViewerButton disabled={!hasNextMedia} grow onClick={this.handleNext}>
-                            <NavigateNextIcon fontSize='large' style={navigationIconStyle} />
+                            <NavigateBeforeIcon style={{ transform: 'rotate(180deg)' }} />
                         </MediaViewerButton>
                     </div>
                 </div>
-                <div className='media-viewer-footer'>
-                    <MediaViewerControl chatId={chatId} messageId={currentMessageId} />
-                    <MediaViewerFooterText
-                        title={title}
-                        subtitle={maxCount && index >= 0 ? `${maxCount - index} of ${maxCount}` : null}
-                    />
-                    {isLottieMessage(chatId, currentMessageId) && (
-                        <>
-                            <MediaViewerFooterButton
-                                title={t('ChangeSpeed')}
-                                checked={speed < 1}
-                                onClick={this.handleChangeSpeed}>
-                                <SlowMotionVideoIcon style={iconStyle} />
-                            </MediaViewerFooterButton>
-                            <MediaViewerFooterButton
-                                title={t('InvertBackgroundColor')}
-                                onClick={this.handleInvertColors}>
-                                <InvertColorsIcon style={iconStyle} />
-                            </MediaViewerFooterButton>
-                        </>
-                    )}
-                    <MediaViewerDownloadButton title={t('Save')} fileId={fileId} onClick={this.handleSave} />
-                    <MediaViewerFooterButton
-                        title={t('Forward')}
-                        disabled={!canBeForwarded}
-                        onClick={this.handleForward}>
-                        <ReplyIcon style={forwardIconStyle} />
-                    </MediaViewerFooterButton>
-                    <MediaViewerFooterButton title={t('Delete')} disabled={!canBeDeleted} onClick={this.handleDelete}>
-                        <DeleteIcon style={iconStyle} />
-                    </MediaViewerFooterButton>
-                </div>
+                {deleteConfirmation}
             </div>
         );
     }

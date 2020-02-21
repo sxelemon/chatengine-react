@@ -7,15 +7,9 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import { getText } from '../../Utils/Message';
-import MessageStore from '../../Stores/MessageStore';
 import './MediaCaption.css';
 
 class MediaCaption extends React.Component {
-    constructor(props) {
-        super(props);
-    }
-
     handleClick = event => {
         event.stopPropagation();
     };
@@ -32,7 +26,7 @@ class MediaCaption extends React.Component {
 }
 
 MediaCaption.propTypes = {
-    text: PropTypes.array
+    text: PropTypes.object
 };
 
 MediaCaption.defaultProps = {};

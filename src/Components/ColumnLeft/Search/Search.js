@@ -7,13 +7,10 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
-import { compose } from 'recompose';
 import { withTranslation } from 'react-i18next';
-import withStyles from '@material-ui/core/styles/withStyles';
-import CloseIcon from '@material-ui/icons/Close';
+import CloseIcon from '../../../Assets/Icons/Close';
 import IconButton from '@material-ui/core/IconButton';
-import ChatControl from '../../Tile/ChatControl';
+import Chat from '../../Tile/Chat';
 import TopChat from '../../Tile/TopChat';
 import RecentlyFoundChat from '../../Tile/RecentlyFoundChat';
 import FoundPublicChat from '../../Tile/FoundPublicChat';
@@ -23,8 +20,7 @@ import { loadChatsContent, loadUsersContent } from '../../../Utils/File';
 import { filterDuplicateMessages } from '../../../Utils/Message';
 import { getCyrillicInput, getLatinInput } from '../../../Utils/Language';
 import { orderCompare } from '../../../Utils/Common';
-import { USERNAME_LENGTH_MIN } from '../../../Constants';
-import ApplicationStore from '../../../Stores/ApplicationStore';
+import { SCROLL_PRECISION, USERNAME_LENGTH_MIN } from '../../../Constants';
 import ChatStore from '../../../Stores/ChatStore';
 import FileStore from '../../../Stores/FileStore';
 import MessageStore from '../../../Stores/MessageStore';
@@ -32,76 +28,37 @@ import UserStore from '../../../Stores/UserStore';
 import TdLibController from '../../../Controllers/TdLibController';
 import './Search.css';
 
-const styles = theme => ({
-    closeSearchIconButton: {
-        margin: '8px 12px 8px 0'
-    },
-    listItem: {
-        padding: '0px'
-    },
-    search: {
-        background: theme.palette.type === 'dark' ? theme.palette.background.default : '#FFFFFF'
-    }
-});
-
 class Search extends React.Component {
     constructor(props) {
         super(props);
 
         this.listRef = React.createRef();
-
-        const { chatId, text } = this.props;
-
-        this.state = {
-            prevPropsChatId: chatId,
-            prevPropsText: text,
-
-            top: null,
-            recentlyFound: null,
-            local: null,
-            global: null,
-            messages: null
-        };
-    }
-
-    static getDerivedStateFromProps(props, state) {
-        if (props.chatId !== state.prevPropsChatId || props.text !== state.prevPropsText) {
-            return {
-                prevPropsChatId: props.chatId,
-                prevPropsText: props.text,
-
-                top: null,
-                recentlyFound: null,
-                local: null,
-                global: null,
-                messages: null
-            };
-        }
-
-        return null;
+        this.state = {};
     }
 
     componentDidMount() {
-        this.loadContent();
+        const { text } = this.props;
 
-        ApplicationStore.on('clientUpdateSearchText', this.onClientUpdateSearchText);
+        this.searchOrLoadContent(text);
     }
 
-    componentWillUnmount() {
-        ApplicationStore.removeListener('clientUpdateSearchText', this.onClientUpdateSearchText);
+    componentDidUpdate(prevProps, prevState, snapshot) {
+        const { text } = this.props;
+
+        if (prevProps.text !== text) {
+            this.searchOrLoadContent(text);
+        }
     }
 
-    onClientUpdateSearchText = update => {
-        const { text } = update;
-
-        const trimmedText = text.trim();
+    searchOrLoadContent(text) {
+        const trimmedText = text ? text.trim() : '';
 
         if (!trimmedText) {
             this.loadContent();
         } else {
             this.searchText(trimmedText);
         }
-    };
+    }
 
     concatSearchResults = results => {
         const arr = [];
@@ -131,6 +88,8 @@ class Search extends React.Component {
         this.text = text;
         const sessionId = this.sessionId;
         let store = null;
+
+        console.log('[se] searchText=' + text);
 
         const { chatId } = this.props;
         const { savedMessages } = this.state;
@@ -262,12 +221,34 @@ class Search extends React.Component {
 
         MessageStore.setItems(messages.messages);
 
+        let linkMessage = null;
+        if (!chatId) {
+            try {
+                const messageLinkInfo = await TdLibController.send({
+                    '@type': 'getMessageLinkInfo',
+                    url: text
+                });
+                console.log('[se] searchText=' + text + ' messageLinkInfo', messageLinkInfo);
+
+                MessageStore.setItems([messageLinkInfo.message]);
+
+                linkMessage = messageLinkInfo;
+            } catch (error) {
+                console.log('[se] searchText=' + text + ' messageLinkInfo error', error);
+            }
+        }
+
+        console.log('[se] searchText=' + text + ' result', messages, linkMessage);
+
         if (sessionId !== this.sessionId) {
             return;
         }
 
+        console.log('[se] searchText=' + text + ' result session', messages, linkMessage);
+
         this.setState({
-            messages
+            messages,
+            linkMessage
         });
 
         const chats = new Map();
@@ -276,6 +257,15 @@ class Search extends React.Component {
             chats.set(messages.messages[i].chat_id, messages.messages[i].chat_id);
             if (messages.messages[i].sender_user_id) {
                 users.set(messages.messages[i].sender_user_id, messages.messages[i].sender_user_id);
+            }
+        }
+
+        if (linkMessage) {
+            const { chat_id, sender_user_id } = linkMessage;
+
+            chats.set(chat_id, chat_id);
+            if (sender_user_id) {
+                users.set(sender_user_id, sender_user_id);
             }
         }
 
@@ -292,7 +282,8 @@ class Search extends React.Component {
                 recentlyFound: null,
                 local: null,
                 global: null,
-                messages: null
+                messages: null,
+                linkMessage: null
             });
 
             return;
@@ -327,12 +318,13 @@ class Search extends React.Component {
         ]);
 
         this.setState({
-            top: top,
-            recentlyFound: recentlyFound,
-            savedMessages: savedMessages,
+            top,
+            recentlyFound,
+            savedMessages,
             local: null,
             global: null,
-            messages: null
+            messages: null,
+            linkMessage: null
         });
 
         const store = FileStore.getStore();
@@ -382,7 +374,7 @@ class Search extends React.Component {
     handleScroll = () => {
         const list = this.listRef.current;
 
-        if (list.scrollTop + list.offsetHeight === list.scrollHeight) {
+        if (list.scrollTop + list.offsetHeight >= list.scrollHeight - SCROLL_PRECISION) {
             this.onLoadPrevious();
         }
     };
@@ -484,7 +476,9 @@ class Search extends React.Component {
 
     render() {
         const { classes, chatId } = this.props;
-        const { top, recentlyFound, local, global, messages } = this.state;
+        const { top, recentlyFound, local, global, messages, linkMessage } = this.state;
+
+        console.log('[se] render', messages, linkMessage);
 
         const chat = ChatStore.get(chatId);
 
@@ -516,41 +510,89 @@ class Search extends React.Component {
               ))
             : [];
 
+        const globalChatsMap = new Map();
         const globalChats = global
-            ? global.map(x => (
-                  <FoundPublicChat key={x} chatId={x} onClick={() => this.handleSelectMessage(x, null, true, true)} />
-              ))
+            ? global.map(x => {
+                  globalChatsMap.set(x, x);
+
+                  return (
+                      <FoundPublicChat
+                          key={x}
+                          chatId={x}
+                          onClick={() => this.handleSelectMessage(x, null, true, true)}
+                      />
+                  );
+              })
             : [];
 
+        const globalLinkChat =
+            linkMessage && linkMessage.chat_id && !linkMessage.message && !globalChatsMap.has(linkMessage.chat_id) ? (
+                <FoundPublicChat
+                    key={linkMessage.chat_id}
+                    chatId={linkMessage.chat_id}
+                    onClick={() => this.handleSelectMessage(linkMessage.chat_id, null, true, true)}
+                />
+            ) : null;
+
+        const globalMessagesMap = new Map();
         const globalMessages =
             messages && messages.messages
-                ? messages.messages.map(x => (
-                      <FoundMessage
-                          key={`${x.chat_id}_${x.id}`}
-                          chatId={x.chat_id}
-                          messageId={x.id}
-                          chatSearch={Boolean(chatId)}
-                          onClick={() => this.handleSelectMessage(x.chat_id, x.id, false, true)}
-                      />
-                  ))
+                ? messages.messages.map(x => {
+                      const key = `${x.chat_id}_${x.id}`;
+                      globalMessagesMap.set(key, key);
+
+                      return (
+                          <FoundMessage
+                              key={key}
+                              chatId={x.chat_id}
+                              messageId={x.id}
+                              chatSearch={Boolean(chatId)}
+                              onClick={() => this.handleSelectMessage(x.chat_id, x.id, false, true)}
+                          />
+                      );
+                  })
                 : [];
 
+        const globalLinkMessage =
+            linkMessage &&
+            linkMessage.message &&
+            !globalMessagesMap.has(`${linkMessage.message.chat_id}_${linkMessage.message.id}`) ? (
+                <FoundMessage
+                    key={`${linkMessage.message.chat_id}_${linkMessage.message.id}`}
+                    chatId={linkMessage.message.chat_id}
+                    messageId={linkMessage.message.id}
+                    chatSearch={false}
+                    onClick={() =>
+                        this.handleSelectMessage(linkMessage.message.chat_id, linkMessage.message.id, false, true)
+                    }
+                />
+            ) : null;
+
+        let count = messages ? messages.total_count : 0;
+        if (
+            linkMessage &&
+            linkMessage.message &&
+            !globalMessagesMap.has(`${linkMessage.message.chat_id}_${linkMessage.message.id}`)
+        ) {
+            count++;
+        }
+
         let messagesCaption = 'No messages found';
-        if (messages && messages.total_count) {
-            messagesCaption = messages.total_count === 1 ? 'Found 1 message' : `Found ${messages.total_count} messages`;
+        if (count) {
+            messagesCaption = count === 1 ? 'Found 1 message' : `Found ${count} messages`;
         }
 
         return (
-            <div ref={this.listRef} className={classNames(classes.search, 'search')} onScroll={this.handleScroll}>
+            <div ref={this.listRef} className='search' onScroll={this.handleScroll}>
                 {chat && (
                     <div className='search-chat'>
                         <SearchCaption caption='Search messages in' />
                         <div className='search-chat-wrapper'>
                             <div className='search-chat-control'>
-                                <ChatControl chatId={chatId} showStatus={false} />
+                                <Chat chatId={chatId} showStatus={false} />
                             </div>
                             <IconButton
-                                className={classes.closeSearchIconButton}
+                                className='header-right-button'
                                 aria-label='Search'
                                 onMouseDown={this.handleClose}>
                                 <CloseIcon />
@@ -583,12 +625,14 @@ class Search extends React.Component {
                 {globalChats.length > 0 && (
                     <div className='search-global-chats'>
                         <SearchCaption caption='Global search' />
+                        {globalLinkChat}
                         {globalChats}
                     </div>
                 )}
-                {messages && (
+                {(messages || (linkMessage && linkMessage.message)) && (
                     <div className='search-global-chats'>
                         <SearchCaption caption={messagesCaption} />
+                        {globalLinkMessage}
                         {globalMessages}
                     </div>
                 )}
@@ -604,9 +648,4 @@ Search.propTypes = {
     onClose: PropTypes.func.isRequired
 };
 
-const enhance = compose(
-    withStyles(styles, { withTheme: true }),
-    withTranslation()
-);
-
-export default enhance(Search);
+export default withTranslation()(Search);

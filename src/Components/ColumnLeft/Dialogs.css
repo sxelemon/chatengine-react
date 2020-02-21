@@ -7,11 +7,11 @@
 
 .dialogs {
     float: left;
-    width: calc(36% - 0px);
+    width: calc(25% - 0px);
     margin: 0;
     box-sizing: border-box;
-    border-right-width: 1px;
-    border-right-style: solid;
+    border-right: 1px solid var(--border);
+    background: var(--panel-background);
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -25,5 +25,5 @@
 }
 
 .dialogs-third-column {
-    width: calc(26.7% - 0px);
+    width: calc(25% - 0px);
 }
