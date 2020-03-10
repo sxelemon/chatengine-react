@@ -10,10 +10,17 @@ import classNames from 'classnames';
 import { compose } from '../../Utils/HOC';
 import { withTranslation } from 'react-i18next';
 import withTheme from '@material-ui/core/styles/withTheme';
+import Button from '@material-ui/core/Button';
 import CheckMarkIcon from '@material-ui/icons/Check';
+import Dialog from '@material-ui/core/Dialog';
+import DialogTitle from '@material-ui/core/DialogTitle';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import DialogActions from '@material-ui/core/DialogActions';
 import Popover from '@material-ui/core/Popover';
 import MenuList from '@material-ui/core/MenuList';
 import MenuItem from '@material-ui/core/MenuItem';
+import DayMeta from './DayMeta';
 import Reply from './Reply';
 import Forward from './Forward';
 import Meta from './Meta';
@@ -35,7 +42,7 @@ import {
     canMessageBeUnvoted,
     canMessageBeClosed
 } from '../../Utils/Message';
-import { canPinMessages, canSendMessages } from '../../Utils/Chat';
+import { canPinMessages, canSendMessages, isPrivateChat } from '../../Utils/Chat';
 import {
     openUser,
     openChat,
@@ -47,6 +54,8 @@ import {
     clearSelection,
     deleteMessages
 } from '../../Actions/Client';
+import { copy } from '../../Utils/Text';
+import { cancelPollAnswer, stopPoll } from '../../Actions/Poll';
 import { pinMessage, unpinMessage } from '../../Actions/Message';
 import { withRestoreRef, withSaveRef } from '../../Utils/HOC';
 import { getFitSize, getSize } from '../../Utils/Common';
@@ -54,13 +63,6 @@ import { PHOTO_DISPLAY_SIZE, PHOTO_SIZE } from '../../Constants';
 import MessageStore from '../../Stores/MessageStore';
 import TdLibController from '../../Controllers/TdLibController';
 import './Message.css';
-import { cancelPollAnswer, stopPoll } from '../../Actions/Poll';
-import Dialog from '@material-ui/core/Dialog';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogActions from '@material-ui/core/DialogActions';
-import Button from '@material-ui/core/Button';
 
 class Message extends Component {
     constructor(props) {
@@ -72,7 +74,12 @@ class Message extends Component {
             emojiMatches: getEmojiMatches(chatId, messageId),
             selected: false,
             highlighted: false,
-            shook: false
+            shook: false,
+
+            confirmStopPoll: false,
+            contextMenu: false,
+            left: 0,
+            top: 0
         };
     }
 
@@ -81,67 +88,67 @@ class Message extends Component {
         const { contextMenu, selected, highlighted, shook, emojiMatches, confirmStopPoll } = this.state;
 
         if (nextProps.theme !== theme) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true theme');
             return true;
         }
 
         if (nextProps.chatId !== chatId) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true chatId');
             return true;
         }
 
         if (nextProps.messageId !== messageId) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true messageId');
             return true;
         }
 
         if (nextProps.sendingState !== sendingState) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true sendingState');
             return true;
         }
 
         if (nextProps.showUnreadSeparator !== showUnreadSeparator) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true showUnreadSeparator');
             return true;
         }
 
         if (nextProps.showTail !== showTail) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true showTail');
             return true;
         }
 
         if (nextProps.showTitle !== showTitle) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true showTitle');
             return true;
         }
 
         if (nextState.confirmStopPoll !== confirmStopPoll) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true confirmStopPoll');
             return true;
         }
 
         if (nextState.contextMenu !== contextMenu) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true contextMenu');
             return true;
         }
 
         if (nextState.selected !== selected) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true selected');
             return true;
         }
 
         if (nextState.highlighted !== highlighted) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true highlighted');
             return true;
         }
 
         if (nextState.shook !== shook) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true shook');
             return true;
         }
 
         if (nextState.emojiMatches !== emojiMatches) {
-            // console.log('Message.shouldComponentUpdate true');
+            // console.log('Message.shouldComponentUpdate true emojiMatches');
             return true;
         }
 
@@ -355,9 +362,12 @@ class Message extends Component {
 
             const left = event.clientX;
             const top = event.clientY;
+            const copyLink =
+                event.target && event.target.tagName === 'A' && event.target.href ? event.target.href : null;
 
             this.setState({
                 contextMenu: true,
+                copyLink,
                 left,
                 top
             });
@@ -526,9 +536,31 @@ class Message extends Component {
         this.setState({ confirmStopPoll: false });
     };
 
+    handleCopyLink = event => {
+        const { copyLink } = this.state;
+
+        this.handleCloseContextMenu(event);
+
+        if (!copyLink) return;
+
+        copy(copyLink);
+    };
+
     render() {
-        const { t, chatId, messageId, showUnreadSeparator, showTail, showTitle } = this.props;
-        const { emojiMatches, selected, highlighted, shook, contextMenu, left, top, confirmStopPoll } = this.state;
+        const { t, chatId, messageId, showUnreadSeparator, showTail, showTitle, showDate } = this.props;
+        const {
+            emojiMatches,
+            selected,
+            highlighted,
+            shook,
+            copyLink,
+            contextMenu,
+            left,
+            top,
+            confirmStopPoll
+        } = this.state;
+
+        // console.log('Message.render', messageId);
 
         const message = MessageStore.get(chatId, messageId);
         if (!message) return <div>[empty message]</div>;
@@ -548,7 +580,9 @@ class Message extends Component {
         const text = getText(message, inlineMeta, t);
         const hasCaption = text !== null && text.length > 0;
         const showForward = showMessageForward(chatId, messageId);
-        const hasTitle = showTitle || showForward || Boolean(reply_to_message_id);
+        const showReply = Boolean(reply_to_message_id);
+        const suppressTitle = isPrivateChat(chatId);
+        const hasTitle = (!suppressTitle && showTitle) || showForward || showReply;
         const webPage = getWebPage(message);
         const media = getMedia(message, this.openMedia, hasTitle, hasCaption, inlineMeta);
 
@@ -576,131 +610,135 @@ class Message extends Component {
             message.content['@type'] !== 'messageSticker' && message.content['@type'] !== 'messageVideoNote';
 
         return (
-            <div
-                className={classNames('message', {
-                    'message-short': !tile,
-                    'message-out': is_outgoing,
-                    'message-selected': selected,
-                    'message-highlighted': highlighted && !selected,
-                    'message-top': showTitle && !showTail,
-                    'message-bottom': !showTitle && showTail,
-                    'message-middle': !showTitle && !showTail,
-                    'message-bubble-hidden': !withBubble
-                })}
-                onMouseOver={this.handleMouseOver}
-                onMouseOut={this.handleMouseOut}
-                onMouseDown={this.handleMouseDown}
-                onClick={this.handleSelection}
-                onAnimationEnd={this.handleAnimationEnd}
-                onContextMenu={this.handleContextMenu}>
-                {showUnreadSeparator && <UnreadSeparator />}
-                <div className='message-body'>
-                    <div className='message-padding'>
-                        <CheckMarkIcon className='message-select-tick' />
-                    </div>
-                    <div className={classNames('message-wrapper', { 'message-wrapper-shook': shook })}>
-                        {tile}
-                        <div
-                            className={classNames('message-content', {
-                                'message-bubble': withBubble,
-                                'message-bubble-out': withBubble && is_outgoing
-                            })}
-                            style={style}>
-                            {withBubble && (showTitle || showForward) && (
-                                <div className='message-title'>
-                                    {showTitle && !showForward && (
-                                        <MessageAuthor chatId={chatId} openChat userId={sender_user_id} openUser />
-                                    )}
-                                    {showForward && <Forward forwardInfo={forward_info} />}
-                                </div>
-                            )}
-                            {Boolean(reply_to_message_id) && (
-                                <Reply
-                                    chatId={chatId}
-                                    messageId={reply_to_message_id}
-                                    onClick={this.handleReplyClick}
-                                />
-                            )}
-                            {media}
-                            <div
-                                className={classNames('message-text', {
-                                    'message-text-1emoji': emojiMatches === 1,
-                                    'message-text-2emoji': emojiMatches === 2,
-                                    'message-text-3emoji': emojiMatches === 3
-                                })}>
-                                {text}
-                            </div>
-                            {webPage && (
-                                <WebPage
-                                    chatId={chatId}
-                                    messageId={messageId}
-                                    openMedia={this.openMedia}
-                                    meta={inlineMeta}
-                                />
-                            )}
-                            {withBubble && (
-                                <Meta
-                                    className={classNames('meta-text', {
-                                        'meta-bubble': isMetaBubble(chatId, messageId)
-                                    })}
-                                    chatId={chatId}
-                                    messageId={messageId}
-                                    date={date}
-                                    editDate={edit_date}
-                                    views={views}
-                                    onDateClick={this.handleDateClick}
-                                />
-                            )}
+            <div>
+                {showDate && <DayMeta date={date} />}
+                <div
+                    className={classNames('message', {
+                        'message-short': !tile,
+                        'message-out': is_outgoing,
+                        'message-selected': selected,
+                        'message-highlighted': highlighted && !selected,
+                        'message-top': showTitle && !showTail,
+                        'message-bottom': !showTitle && showTail,
+                        'message-middle': !showTitle && !showTail,
+                        'message-bubble-hidden': !withBubble
+                    })}
+                    onMouseOver={this.handleMouseOver}
+                    onMouseOut={this.handleMouseOut}
+                    onMouseDown={this.handleMouseDown}
+                    onClick={this.handleSelection}
+                    onAnimationEnd={this.handleAnimationEnd}
+                    onContextMenu={this.handleContextMenu}>
+                    {showUnreadSeparator && <UnreadSeparator />}
+                    <div className='message-body'>
+                        <div className='message-padding'>
+                            <CheckMarkIcon className='message-select-tick' />
                         </div>
-                        <div className='message-tile-padding' />
+                        <div className={classNames('message-wrapper', { 'message-wrapper-shook': shook })}>
+                            {tile}
+                            <div
+                                className={classNames('message-content', {
+                                    'message-bubble': withBubble,
+                                    'message-bubble-out': withBubble && is_outgoing
+                                })}
+                                style={style}>
+                                {withBubble && ((showTitle && !suppressTitle) || showForward) && (
+                                    <div className='message-title'>
+                                        {showTitle && !showForward && (
+                                            <MessageAuthor chatId={chatId} openChat userId={sender_user_id} openUser />
+                                        )}
+                                        {showForward && <Forward forwardInfo={forward_info} />}
+                                    </div>
+                                )}
+                                {showReply && (
+                                    <Reply
+                                        chatId={chatId}
+                                        messageId={reply_to_message_id}
+                                        onClick={this.handleReplyClick}
+                                    />
+                                )}
+                                {media}
+                                <div
+                                    className={classNames('message-text', {
+                                        'message-text-1emoji': emojiMatches === 1,
+                                        'message-text-2emoji': emojiMatches === 2,
+                                        'message-text-3emoji': emojiMatches === 3
+                                    })}>
+                                    {text}
+                                </div>
+                                {webPage && (
+                                    <WebPage
+                                        chatId={chatId}
+                                        messageId={messageId}
+                                        openMedia={this.openMedia}
+                                        meta={inlineMeta}
+                                    />
+                                )}
+                                {withBubble && (
+                                    <Meta
+                                        className={classNames('meta-text', {
+                                            'meta-bubble': isMetaBubble(chatId, messageId)
+                                        })}
+                                        chatId={chatId}
+                                        messageId={messageId}
+                                        date={date}
+                                        editDate={edit_date}
+                                        views={views}
+                                        onDateClick={this.handleDateClick}
+                                    />
+                                )}
+                            </div>
+                            <div className='message-tile-padding' />
+                        </div>
+                        <div className='message-padding' />
                     </div>
-                    <div className='message-padding' />
+                    <Popover
+                        open={contextMenu}
+                        onClose={this.handleCloseContextMenu}
+                        anchorReference='anchorPosition'
+                        anchorPosition={{ top, left }}
+                        anchorOrigin={{
+                            vertical: 'bottom',
+                            horizontal: 'right'
+                        }}
+                        transformOrigin={{
+                            vertical: 'top',
+                            horizontal: 'left'
+                        }}
+                        onMouseDown={e => e.stopPropagation()}>
+                        <MenuList onClick={e => e.stopPropagation()}>
+                            {copyLink && <MenuItem onClick={this.handleCopyLink}>{t('CopyLink')}</MenuItem>}
+                            {canBeReplied && <MenuItem onClick={this.handleReply}>{t('Reply')}</MenuItem>}
+                            {canBePinned && (
+                                <MenuItem onClick={this.handlePin}>{isPinned ? t('Unpin') : t('Pin')}</MenuItem>
+                            )}
+                            {canBeSelected && <MenuItem onClick={this.handleSelect}>{t('Select')}</MenuItem>}
+                            {canBeForwarded && <MenuItem onClick={this.handleForward}>{t('Forward')}</MenuItem>}
+                            {canBeEdited && <MenuItem onClick={this.handleEdit}>{t('Edit')}</MenuItem>}
+                            {canBeDeleted && <MenuItem onClick={this.handleDelete}>{t('Delete')}</MenuItem>}
+                            {canBeUnvoted && <MenuItem onClick={this.handleUnvote}>{t('Unvote')}</MenuItem>}
+                            {canBeClosed && <MenuItem onClick={this.handleConfirmStopPoll}>{t('StopPoll')}</MenuItem>}
+                        </MenuList>
+                    </Popover>
+                    <Dialog
+                        transitionDuration={0}
+                        open={confirmStopPoll}
+                        onClose={this.handleCloseConfirm}
+                        aria-labelledby='form-dialog-title'>
+                        <DialogTitle id='form-dialog-title'>{t('StopPollAlertTitle')}</DialogTitle>
+                        <DialogContent>
+                            <DialogContentText>{t('StopPollAlertText')}</DialogContentText>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button onClick={this.handleCloseConfirm} color='primary'>
+                                {t('Cancel')}
+                            </Button>
+                            <Button onClick={this.handleStopPoll} color='primary'>
+                                {t('Stop')}
+                            </Button>
+                        </DialogActions>
+                    </Dialog>
                 </div>
-                <Popover
-                    open={contextMenu}
-                    onClose={this.handleCloseContextMenu}
-                    anchorReference='anchorPosition'
-                    anchorPosition={{ top, left }}
-                    anchorOrigin={{
-                        vertical: 'bottom',
-                        horizontal: 'right'
-                    }}
-                    transformOrigin={{
-                        vertical: 'top',
-                        horizontal: 'left'
-                    }}
-                    onMouseDown={e => e.stopPropagation()}>
-                    <MenuList onClick={e => e.stopPropagation()}>
-                        {canBeReplied && <MenuItem onClick={this.handleReply}>{t('Reply')}</MenuItem>}
-                        {canBePinned && (
-                            <MenuItem onClick={this.handlePin}>{isPinned ? t('Unpin') : t('Pin')}</MenuItem>
-                        )}
-                        {canBeSelected && <MenuItem onClick={this.handleSelect}>{t('Select')}</MenuItem>}
-                        {canBeForwarded && <MenuItem onClick={this.handleForward}>{t('Forward')}</MenuItem>}
-                        {canBeEdited && <MenuItem onClick={this.handleEdit}>{t('Edit')}</MenuItem>}
-                        {canBeDeleted && <MenuItem onClick={this.handleDelete}>{t('Delete')}</MenuItem>}
-                        {canBeUnvoted && <MenuItem onClick={this.handleUnvote}>{t('Unvote')}</MenuItem>}
-                        {canBeClosed && <MenuItem onClick={this.handleConfirmStopPoll}>{t('StopPoll')}</MenuItem>}
-                    </MenuList>
-                </Popover>
-                <Dialog
-                    transitionDuration={0}
-                    open={confirmStopPoll}
-                    onClose={this.handleCloseConfirm}
-                    aria-labelledby='form-dialog-title'>
-                    <DialogTitle id='form-dialog-title'>{t('StopPollAlertTitle')}</DialogTitle>
-                    <DialogContent>
-                        <DialogContentText>{t('StopPollAlertText')}</DialogContentText>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={this.handleCloseConfirm} color='primary'>
-                            {t('Cancel')}
-                        </Button>
-                        <Button onClick={this.handleStopPoll} color='primary'>
-                            {t('Stop')}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </div>
         );
     }

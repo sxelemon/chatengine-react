@@ -7,16 +7,17 @@
 
 import React from 'react';
 import { withTranslation } from 'react-i18next';
-import ArrowBackIcon from '@material-ui/icons/ArrowBack';
+import { compose, withRestoreRef, withSaveRef } from '../../../Utils/HOC';
 import Checkbox from '@material-ui/core/Checkbox';
 import IconButton from '@material-ui/core/IconButton';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
+import ArrowBackIcon from '../../../Assets/Icons/Back';
 import NotificationStore from '../../../Stores/NotificationStore';
 import OptionStore from '../../../Stores/OptionStore';
 import TdLibController from '../../../Controllers/TdLibController';
 import './Notifications.css';
+import SidebarPage from '../SidebarPage';
+import PropTypes from 'prop-types';
 
 class Notifications extends React.Component {
     constructor(props) {
@@ -114,18 +115,14 @@ class Notifications extends React.Component {
         return show_preview;
     }
 
-    handleClose = () => {
-        TdLibController.clientUpdate({ '@type': 'clientUpdateNotificationsPage', opened: false });
-    };
-
     render() {
-        const { t } = this.props;
+        const { t, onClose } = this.props;
         const { privateChatsSettings, groupChatsSettings, channelChatsSettings, contactJoined } = this.state;
 
         return (
-            <div className='sidebar-page'>
+            <>
                 <div className='header-master'>
-                    <IconButton className='header-left-button' onClick={this.handleClose}>
+                    <IconButton className='header-left-button' onClick={onClose}>
                         <ArrowBackIcon />
                     </IconButton>
                     <div className='header-status grow cursor-pointer'>
@@ -265,9 +262,19 @@ class Notifications extends React.Component {
                         </div>
                     </div>
                 </div>
-            </div>
+            </>
         );
     }
 }
 
-export default withTranslation()(Notifications);
+Notifications.propTypes = {
+    onClose: PropTypes.func
+};
+
+const enhance = compose(
+    withSaveRef(),
+    withTranslation(),
+    withRestoreRef()
+);
+
+export default enhance(Notifications);

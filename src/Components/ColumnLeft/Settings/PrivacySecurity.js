@@ -8,20 +8,24 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { withTranslation } from 'react-i18next';
-import ArrowBackIcon from '@material-ui/icons/ArrowBack';
+import { compose, withRestoreRef, withSaveRef } from '../../../Utils/HOC';
 import IconButton from '@material-ui/core/IconButton';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
+import ActiveSessions from './ActiveSessions';
+import ArrowBackIcon from '../../../Assets/Icons/Back';
 import DeviceIcon from '../../../Assets/Icons/Device';
 import RemoveMemberIcon from '../../../Assets/Icons/RemoveMember';
+import SidebarPage from '../SidebarPage';
 import TdLibController from '../../../Controllers/TdLibController';
 import './PrivacySecurity.css';
 
 class PrivacySecurity extends React.Component {
     state = {
         sessions: null,
-        users: null
+        users: null,
+        openActiveSessions: false
     };
 
     componentDidMount() {
@@ -40,29 +44,34 @@ class PrivacySecurity extends React.Component {
         }).then(users => this.setState({ users }));
     }
 
-    handleClose = () => {
-        TdLibController.clientUpdate({ '@type': 'clientUpdatePrivacySecurityPage', opened: false });
-    };
-
     handleBlockedUsers = () => {
+        const { users } = this.state;
+        if (!users) return;
+
         TdLibController.clientUpdate({
             '@type': 'clientUpdateBlockedUsersPage',
             opened: true,
-            users: this.state.users
+            users
         });
     };
 
-    handleActiveSessions = () => {
-        TdLibController.clientUpdate({
-            '@type': 'clientUpdateActiveSessionsPage',
-            opened: true,
-            sessions: this.state.sessions
+    openActiveSessions = () => {
+        if (!this.state.sessions) return;
+
+        this.setState({
+            openActiveSessions: true
+        });
+    };
+
+    closeActiveSessions = () => {
+        this.setState({
+            openActiveSessions: false
         });
     };
 
     render() {
-        const { t } = this.props;
-        const { users, sessions } = this.state;
+        const { t, onClose } = this.props;
+        const { users, openActiveSessions, sessions } = this.state;
 
         const sessionsCount =
             sessions && sessions.sessions.length > 0
@@ -79,9 +88,9 @@ class PrivacySecurity extends React.Component {
                 : 'no users';
 
         return (
-            <div className='sidebar-page'>
+            <>
                 <div className='header-master'>
-                    <IconButton className='header-left-button' onClick={this.handleClose}>
+                    <IconButton className='header-left-button' onClick={onClose}>
                         <ArrowBackIcon />
                     </IconButton>
                     <div className='header-status grow cursor-pointer'>
@@ -109,7 +118,7 @@ class PrivacySecurity extends React.Component {
                             className='settings-list-item2'
                             role={undefined}
                             button
-                            onClick={this.handleActiveSessions}>
+                            onClick={this.openActiveSessions}>
                             <ListItemIcon className='settings-list-item-icon'>
                                 <DeviceIcon />
                             </ListItemIcon>
@@ -161,11 +170,22 @@ class PrivacySecurity extends React.Component {
                         </ListItem>
                     </div>
                 </div>
-            </div>
+                <SidebarPage open={openActiveSessions}>
+                    <ActiveSessions sessions={sessions} onClose={this.closeActiveSessions} />
+                </SidebarPage>
+            </>
         );
     }
 }
 
-PrivacySecurity.propTypes = {};
+PrivacySecurity.propTypes = {
+    onClose: PropTypes.func
+};
 
-export default withTranslation()(PrivacySecurity);
+const enhance = compose(
+    withSaveRef(),
+    withTranslation(),
+    withRestoreRef()
+);
+
+export default enhance(PrivacySecurity);

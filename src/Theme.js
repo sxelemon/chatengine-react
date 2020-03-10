@@ -33,11 +33,12 @@ function updateLightTheme(theme) {
     style.setProperty('--z-index-modal', theme.zIndex.modal);
 
     style.setProperty('--color-accent-main', theme.palette.primary.main);
-    style.setProperty('--color-accent-main22', theme.palette.primary.main + '22');
+    style.setProperty('--color-accent-main22', theme.palette.primary.main + '44');
     style.setProperty('--color-accent-dark', theme.palette.primary.dark);
     style.setProperty('--color-accent-light', theme.palette.primary.light);
     style.setProperty('--color-grey700', theme.palette.grey[700]);
     style.setProperty('--color-grey', '#9AA7B2');
+    style.setProperty('--color-search-input', '#f4f4f5');
 
     style.setProperty('--header-color', '#000000');
     style.setProperty('--header-subtle-color', '#707579');
@@ -112,11 +113,12 @@ function updateDarkTheme(theme) {
     style.setProperty('--z-index-modal', theme.zIndex.modal);
 
     style.setProperty('--color-accent-main', theme.palette.primary.main);
-    style.setProperty('--color-accent-main22', theme.palette.primary.main + '22');
+    style.setProperty('--color-accent-main22', theme.palette.primary.main + '44');
     style.setProperty('--color-accent-dark', theme.palette.primary.dark);
     style.setProperty('--color-accent-light', theme.palette.primary.light);
     style.setProperty('--color-grey700', theme.palette.grey[700]);
     style.setProperty('--color-grey', '#9AA7B2');
+    style.setProperty('--color-search-input', '#424242');
 
     style.setProperty('--header-color', '#ffffff');
     style.setProperty('--header-subtle-color', theme.palette.text.secondary);

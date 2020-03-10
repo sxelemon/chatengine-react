@@ -7,16 +7,13 @@
 
 import React, { Component } from 'react';
 import classNames from 'classnames';
+import Archive from './Archive';
 import Search from './Search/Search';
 import DialogsHeader from './DialogsHeader';
 import DialogsList from './DialogsList';
-import EditProfile from './Settings/EditProfile';
-import Notifications from './Settings/Notifications';
+import SidebarPage from './SidebarPage';
 import Settings from './Settings/Settings';
 import Contacts from './Contacts';
-import Language from './Language';
-import PrivacySecurity from './Settings/PrivacySecurity';
-import ActiveSessions from './Settings/ActiveSessions';
 import UpdatePanel from './UpdatePanel';
 import { openChat } from '../../Actions/Client';
 import { getArchiveTitle } from '../../Utils/Archive';
@@ -50,13 +47,8 @@ class Dialogs extends Component {
             isChatDetailsVisible,
             openSearch: false,
             openArchive: false,
-            openSettings: false,
-            openEditProfile: false,
-            openNotifications: false,
-            openPrivacySecurity: false,
-            openActiveSessions: false,
-            openLanguage: false,
             openContacts: false,
+            openSettings: false,
 
             searchChatId: 0,
             searchText: null,
@@ -73,14 +65,9 @@ class Dialogs extends Component {
             archiveItems,
             isChatDetailsVisible,
             openSearch,
-            openSettings,
-            openEditProfile,
-            openNotifications,
-            openPrivacySecurity,
-            openActiveSessions,
-            openLanguage,
-            openContacts,
             openArchive,
+            openSettings,
+            openContacts,
             searchChatId,
             searchText
         } = this.state;
@@ -109,39 +96,19 @@ class Dialogs extends Component {
             return true;
         }
 
-        if (nextState.openSettings !== openSettings) {
-            return true;
-        }
-
-        if (nextState.openEditProfile !== openEditProfile) {
-            return true;
-        }
-
-        if (nextState.openNotifications !== openNotifications) {
-            return true;
-        }
-
-        if (nextState.openPrivacySecurity !== openPrivacySecurity) {
-            return true;
-        }
-
-        if (nextState.openActiveSessions !== openActiveSessions) {
-            return true;
-        }
-
-        if (nextState.openLanguage !== openLanguage) {
-            return true;
-        }
-
-        if (nextState.openContacts !== openContacts) {
-            return true;
-        }
-
         if (nextState.openSearch !== openSearch) {
             return true;
         }
 
         if (nextState.openArchive !== openArchive) {
+            return true;
+        }
+
+        if (nextState.openSettings !== openSettings) {
+            return true;
+        }
+
+        if (nextState.openContacts !== openContacts) {
             return true;
         }
 
@@ -175,14 +142,8 @@ class Dialogs extends Component {
         ChatStore.on('clientUpdateCloseSettings', this.onClientUpdateCloseSettings);
         ChatStore.on('clientUpdateOpenArchive', this.onClientUpdateOpenArchive);
         ChatStore.on('clientUpdateCloseArchive', this.onClientUpdateCloseArchive);
-        ChatStore.on('clientUpdateOpenEditProfile', this.onClientUpdateOpenEditProfile);
-        ChatStore.on('clientUpdateCloseEditProfile', this.onClientUpdateCloseEditProfile);
-        ChatStore.on('clientUpdateNotificationsPage', this.onClientUpdateNotificationsPage);
         ChatStore.on('clientUpdateOpenContacts', this.onClientUpdateOpenContacts);
         ChatStore.on('clientUpdateCloseContacts', this.onClientUpdateCloseContacts);
-        ChatStore.on('clientUpdatePrivacySecurityPage', this.onClientUpdatePrivacySecurityPage);
-        ChatStore.on('clientUpdateActiveSessionsPage', this.onClientUpdateActiveSessionsPage);
-        ChatStore.on('clientUpdateLanguagePage', this.onClientUpdateLanguagePage);
     }
 
     componentWillUnmount() {
@@ -202,14 +163,8 @@ class Dialogs extends Component {
         ChatStore.off('clientUpdateCloseSettings', this.onClientUpdateCloseSettings);
         ChatStore.off('clientUpdateOpenArchive', this.onClientUpdateOpenArchive);
         ChatStore.off('clientUpdateCloseArchive', this.onClientUpdateCloseArchive);
-        ChatStore.off('clientUpdateOpenEditProfile', this.onClientUpdateOpenEditProfile);
-        ChatStore.off('clientUpdateCloseEditProfile', this.onClientUpdateCloseEditProfile);
-        ChatStore.off('clientUpdateNotificationsPage', this.onClientUpdateNotificationsPage);
         ChatStore.off('clientUpdateOpenContacts', this.onClientUpdateOpenContacts);
         ChatStore.off('clientUpdateCloseContacts', this.onClientUpdateCloseContacts);
-        ChatStore.off('clientUpdatePrivacySecurityPage', this.onClientUpdatePrivacySecurityPage);
-        ChatStore.off('clientUpdateActiveSessionsPage', this.onClientUpdateActiveSessionsPage);
-        ChatStore.off('clientUpdateLanguagePage', this.onClientUpdateLanguagePage);
     }
 
     async loadCache() {
@@ -296,44 +251,8 @@ class Dialogs extends Component {
         }
     };
 
-    onClientUpdateOpenEditProfile = update => {
-        this.setState({ openEditProfile: true });
-    };
-
-    onClientUpdateCloseEditProfile = update => {
-        this.setState({ openEditProfile: false });
-    };
-
-    onClientUpdateNotificationsPage = update => {
-        const { opened } = update;
-
-        this.setState({ openNotifications: opened });
-    };
-
     onClientUpdateOpenContacts = async update => {
-        const contacts = await TdLibController.send({
-            '@type': 'getContacts'
-        });
-
-        this.setState({ openContacts: true, contacts });
-    };
-
-    onClientUpdatePrivacySecurityPage = update => {
-        const { opened } = update;
-
-        this.setState({ openPrivacySecurity: opened });
-    };
-
-    onClientUpdateActiveSessionsPage = update => {
-        const { opened, sessions } = update;
-
-        this.setState({ openActiveSessions: opened, sessions });
-    };
-
-    onClientUpdateLanguagePage = update => {
-        const { opened } = update;
-
-        this.setState({ openLanguage: opened });
+        this.setState({ openContacts: true });
     };
 
     onClientUpdateCloseContacts = update => {
@@ -379,7 +298,10 @@ class Dialogs extends Component {
             {
                 openSearch: true,
                 searchChatId: chatId,
-                searchText: null
+                searchText: null,
+                openSettings: false,
+                openActiveSessions: false,
+                openContacts: false
             },
             () => {
                 if (header) {
@@ -453,16 +375,9 @@ class Dialogs extends Component {
             mainItems,
             archiveItems,
             isChatDetailsVisible,
-            openSettings,
-            openEditProfile,
-            openNotifications,
-            openPrivacySecurity,
-            openActiveSessions,
-            sessions,
-            openLanguage,
-            openContacts,
-            contacts,
             meChatId,
+            openSettings,
+            openContacts,
             openArchive,
             openSearch,
             searchChatId,
@@ -473,62 +388,59 @@ class Dialogs extends Component {
         const archiveCacheItems = cache ? cache.archiveChats || [] : null;
 
         return (
-            <div
-                className={classNames('dialogs', {
-                    'dialogs-third-column': isChatDetailsVisible
-                })}>
-                <DialogsHeader
-                    ref={this.dialogsHeaderRef}
-                    openSettings={openSettings}
-                    openArchive={openArchive}
-                    openSearch={openSearch}
-                    openEditProfile={openEditProfile}
-                    openNotifications={openNotifications}
-                    openPrivacySecurity={openPrivacySecurity}
-                    openActiveSessions={openActiveSessions}
-                    openLanguage={openLanguage}
-                    openContacts={openContacts}
-                    onClick={this.handleHeaderClick}
-                    onSearch={this.handleSearch}
-                    onSearchTextChange={this.handleSearchTextChange}
-                />
-                <div className='dialogs-content'>
-                    <DialogsList
-                        type='chatListMain'
-                        ref={this.dialogListRef}
-                        cacheItems={mainCacheItems}
-                        items={mainItems}
-                        showArchive={showArchive}
-                        archiveTitle={archiveTitle}
-                        open={true}
-                        onSaveCache={this.handleSaveCache}
-                    />
-                    <DialogsList
-                        type='chatListArchive'
-                        ref={this.archiveListRef}
-                        cacheItems={archiveCacheItems}
-                        items={archiveItems}
-                        open={openArchive}
-                        onSaveCache={this.handleSaveCache}
-                    />
-                    {openSearch && (
-                        <Search
-                            chatId={searchChatId}
-                            text={searchText}
-                            onSelectMessage={this.handleSelectMessage}
-                            onClose={this.handleClose}
+            <>
+                <div
+                    className={classNames('dialogs', {
+                        'dialogs-third-column': isChatDetailsVisible
+                    })}>
+                    <div className='sidebar-page'>
+                        <DialogsHeader
+                            ref={this.dialogsHeaderRef}
+                            openSearch={openSearch}
+                            onClick={this.handleHeaderClick}
+                            onSearch={this.handleSearch}
+                            onSearchTextChange={this.handleSearchTextChange}
                         />
-                    )}
-                    {openSettings && <Settings chatId={meChatId} />}
-                    {openEditProfile && <EditProfile chatId={meChatId} />}
-                    {openNotifications && <Notifications chatId={meChatId} />}
-                    {openPrivacySecurity && <PrivacySecurity />}
-                    {openActiveSessions && <ActiveSessions sessions={sessions} />}
-                    {openLanguage && <Language />}
-                    {openContacts && <Contacts items={contacts} />}
+                        <div className='dialogs-content'>
+                            <DialogsList
+                                type='chatListMain'
+                                ref={this.dialogListRef}
+                                cacheItems={mainCacheItems}
+                                items={mainItems}
+                                showArchive={showArchive}
+                                archiveTitle={archiveTitle}
+                                open={true}
+                                onSaveCache={this.handleSaveCache}
+                            />
+                            {openSearch && (
+                                <Search
+                                    chatId={searchChatId}
+                                    text={searchText}
+                                    onSelectMessage={this.handleSelectMessage}
+                                    onClose={this.handleClose}
+                                />
+                            )}
+                        </div>
+                        <UpdatePanel />
+                    </div>
+
+                    <SidebarPage open={openArchive}>
+                        <Archive
+                            innerListRef={this.archiveListRef}
+                            items={archiveItems}
+                            cacheItems={archiveCacheItems}
+                        />
+                    </SidebarPage>
+
+                    <SidebarPage open={openContacts}>
+                        <Contacts />
+                    </SidebarPage>
+
+                    <SidebarPage open={openSettings}>
+                        <Settings chatId={meChatId} />
+                    </SidebarPage>
                 </div>
-                <UpdatePanel />
-            </div>
+            </>
         );
     }
 }

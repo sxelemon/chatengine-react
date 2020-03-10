@@ -8,27 +8,24 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { withTranslation } from 'react-i18next';
+import { compose, withRestoreRef, withSaveRef } from '../../../Utils/HOC';
 import Button from '@material-ui/core/Button';
 import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@material-ui/core';
-import IconButton from '@material-ui/core/IconButton';
-import ArrowBackIcon from '@material-ui/icons/ArrowBack';
-import Session from '../../Tile/Session';
-import TdLibController from '../../../Controllers/TdLibController';
-import './ActiveSessions.css';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
-import StopIcon from '../../../Assets/Icons/Stop';
 import ListItemText from '@material-ui/core/ListItemText';
 import ListItem from '@material-ui/core/ListItem';
+import IconButton from '@material-ui/core/IconButton';
+import ArrowBackIcon from '../../../Assets/Icons/Back';
+import Session from '../../Tile/Session';
+import StopIcon from '../../../Assets/Icons/Stop';
+import TdLibController from '../../../Controllers/TdLibController';
+import './ActiveSessions.css';
 
 class ActiveSessions extends React.Component {
     state = {
         open: false,
         openAll: false,
         session: null
-    };
-
-    handleClose = () => {
-        TdLibController.clientUpdate({ '@type': 'clientUpdateActiveSessionsPage', opened: false });
     };
 
     handleTerminate = session => {
@@ -92,7 +89,7 @@ class ActiveSessions extends React.Component {
     };
 
     render() {
-        const { t, sessions } = this.props;
+        const { t, sessions, onClose } = this.props;
         const { open, openAll } = this.state;
 
         const current = sessions.sessions.find(x => x.is_current);
@@ -100,49 +97,47 @@ class ActiveSessions extends React.Component {
 
         return (
             <>
-                <div className='sidebar-page'>
-                    <div className='header-master'>
-                        <IconButton className='header-left-button' onClick={this.handleClose}>
-                            <ArrowBackIcon />
-                        </IconButton>
-                        <div className='header-status grow cursor-pointer'>
-                            <span className='header-status-content'>{t('SessionsTitle')}</span>
+                <div className='header-master'>
+                    <IconButton className='header-left-button' onClick={onClose}>
+                        <ArrowBackIcon />
+                    </IconButton>
+                    <div className='header-status grow cursor-pointer'>
+                        <span className='header-status-content'>{t('SessionsTitle')}</span>
+                    </div>
+                </div>
+                <div className='sidebar-page-content'>
+                    {Boolean(current) && (
+                        <div className='settings-section'>
+                            <div className='settings-section-header'>{t('CurrentSession')}</div>
+                            <Session session={current} onTerminate={this.handleTerminate} />
+                            {other.length > 0 && (
+                                <ListItem
+                                    className='settings-list-item'
+                                    button
+                                    disableRipple
+                                    onClick={this.handleTerminateAllOther}>
+                                    <ListItemIcon>
+                                        <StopIcon color='secondary' />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primaryTypographyProps={{ color: 'secondary' }}
+                                        primary={t('TerminateAllSessions')}
+                                    />
+                                </ListItem>
+                            )}
                         </div>
-                    </div>
-                    <div className='sidebar-page-content'>
-                        {Boolean(current) && (
+                    )}
+                    {other.length > 0 && (
+                        <>
+                            <div className='settings-border' />
                             <div className='settings-section'>
-                                <div className='settings-section-header'>{t('CurrentSession')}</div>
-                                <Session session={current} onTerminate={this.handleTerminate} />
-                                {other.length > 0 && (
-                                    <ListItem
-                                        className='settings-list-item'
-                                        button
-                                        disableRipple
-                                        onClick={this.handleTerminateAllOther}>
-                                        <ListItemIcon>
-                                            <StopIcon color='secondary' />
-                                        </ListItemIcon>
-                                        <ListItemText
-                                            primaryTypographyProps={{ color: 'secondary' }}
-                                            primary={t('TerminateAllSessions')}
-                                        />
-                                    </ListItem>
-                                )}
+                                <div className='settings-section-header'>{t('OtherSessions')}</div>
+                                {other.map(x => (
+                                    <Session key={x.id} session={x} onTerminate={this.handleTerminate} />
+                                ))}
                             </div>
-                        )}
-                        {other.length > 0 && (
-                            <>
-                                <div className='settings-border' />
-                                <div className='settings-section'>
-                                    <div className='settings-section-header'>{t('OtherSessions')}</div>
-                                    {other.map(x => (
-                                        <Session key={x.id} session={x} onTerminate={this.handleTerminate} />
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </div>
                 <Dialog
                     transitionDuration={0}
@@ -190,7 +185,14 @@ class ActiveSessions extends React.Component {
 }
 
 ActiveSessions.propTypes = {
-    sessions: PropTypes.object.isRequired
+    sessions: PropTypes.object.isRequired,
+    onClose: PropTypes.func
 };
 
-export default withTranslation()(ActiveSessions);
+const enhance = compose(
+    withSaveRef(),
+    withTranslation(),
+    withRestoreRef()
+);
+
+export default enhance(ActiveSessions);
