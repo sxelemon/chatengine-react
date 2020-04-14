@@ -21,7 +21,7 @@ import { loadChatsContent, loadDraftContent, loadMessageContents } from '../../U
 import { canMessageBeEdited, filterDuplicateMessages, filterMessages } from '../../Utils/Message';
 import { isServiceMessage } from '../../Utils/ServiceMessage';
 import { canSendMediaMessages, getChatFullInfo, getSupergroupId, isChannelChat, isPrivateChat } from '../../Utils/Chat';
-import { highlightMessage, openChat } from '../../Actions/Client';
+import { editMessage, highlightMessage, openChat } from '../../Actions/Client';
 import { MESSAGE_SLICE_LIMIT, MESSAGE_SPLIT_MAX_TIME_S, SCROLL_PRECISION } from '../../Constants';
 import AppStore from '../../Stores/ApplicationStore';
 import ChatStore from '../../Stores/ChatStore';
@@ -181,8 +181,6 @@ class MessagesList extends React.Component {
     }
 
     componentDidMount() {
-        // document.addEventListener('keydown', this.onKeyDown, false);
-
         AppStore.on('clientUpdateFocusWindow', this.onClientUpdateFocusWindow);
         AppStore.on('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
         ChatStore.on('clientUpdateClearHistory', this.onClientUpdateClearHistory);
@@ -201,8 +199,6 @@ class MessagesList extends React.Component {
     }
 
     componentWillUnmount() {
-        // document.removeEventListener('keydown', this.onKeyDown, false);
-
         AppStore.off('clientUpdateFocusWindow', this.onClientUpdateFocusWindow);
         AppStore.off('clientUpdateDialogsReady', this.onClientUpdateDialogsReady);
         ChatStore.off('clientUpdateClearHistory', this.onClientUpdateClearHistory);
@@ -238,11 +234,7 @@ class MessagesList extends React.Component {
             for (let i = history.length - 1; i >= 0; i--) {
                 const message = history[i];
                 if (canMessageBeEdited(message.chat_id, message.id)) {
-                    TdLibController.clientUpdate({
-                        '@type': 'clientUpdateEditMessage',
-                        chatId: message.chat_id,
-                        messageId: message.id
-                    });
+                    editMessage(message.chat_id, message.id);
 
                     return;
                 }
@@ -263,11 +255,7 @@ class MessagesList extends React.Component {
         for (let i = 0; i < result.messages.length; i++) {
             const message = result.messages[i];
             if (canMessageBeEdited(message.chat_id, message.id)) {
-                TdLibController.clientUpdate({
-                    '@type': 'clientUpdateEditMessage',
-                    chatId: message.chat_id,
-                    messageId: message.id
-                });
+                editMessage(message.chat_id, message.id);
 
                 return;
             }
@@ -444,6 +432,9 @@ class MessagesList extends React.Component {
         const { message } = update;
         const { chatId } = this.props;
         if (chatId !== message.chat_id) return;
+
+        const { date } = message;
+        if (date === 0) return;
 
         const list = this.listRef.current;
 

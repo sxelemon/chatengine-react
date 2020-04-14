@@ -9,6 +9,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { withTranslation } from 'react-i18next';
+import KeyboardManager, { KeyboardHandler } from '../Additional/KeyboardManager';
 import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
 import CloseIcon from '../../Assets/Icons/Close';
@@ -27,7 +28,7 @@ import MediaViewerButton from './MediaViewerButton';
 import MediaViewerFooterText from './MediaViewerFooterText';
 import MediaViewerFooterButton from './MediaViewerFooterButton';
 import MediaViewerDownloadButton from './MediaViewerDownloadButton';
-import { setMediaViewerContent } from '../../Actions/Client';
+import { forwardMessages, setMediaViewerContent } from '../../Actions/Client';
 import {
     cancelPreloadMediaViewerContent,
     getMediaFile,
@@ -52,6 +53,7 @@ class MediaViewer extends React.Component {
     constructor(props) {
         super(props);
 
+        this.keyboardHandler = new KeyboardHandler(this.onKeyDown);
         this.contentRef = React.createRef();
         this.history = [];
 
@@ -129,14 +131,14 @@ class MediaViewer extends React.Component {
     componentDidMount() {
         this.loadHistory();
 
-        document.addEventListener('keydown', this.onKeyDown, false);
+        KeyboardManager.add(this.keyboardHandler);
         MessageStore.on('updateDeleteMessages', this.onUpdateDeleteMessages);
         MessageStore.on('updateNewMessage', this.onUpdateNewMessage);
         MessageStore.on('updateMessageContent', this.onUpdateMessageContent);
     }
 
     componentWillUnmount() {
-        document.removeEventListener('keydown', this.onKeyDown, false);
+        KeyboardManager.remove(this.keyboardHandler);
         MessageStore.off('updateDeleteMessages', this.onUpdateDeleteMessages);
         MessageStore.off('updateNewMessage', this.onUpdateNewMessage);
         MessageStore.off('updateMessageContent', this.onUpdateMessageContent);
@@ -471,13 +473,7 @@ class MediaViewer extends React.Component {
         const { chatId } = this.props;
         const { currentMessageId } = this.state;
 
-        TdLibController.clientUpdate({
-            '@type': 'clientUpdateForward',
-            info: {
-                chatId: chatId,
-                messageIds: [currentMessageId]
-            }
-        });
+        forwardMessages(chatId, [currentMessageId]);
     };
 
     handleDelete = () => {
@@ -810,7 +806,7 @@ class MediaViewer extends React.Component {
             </Dialog>
         ) : null;
 
-        const [width, height, file] = getMediaFile(chatId, currentMessageId, PHOTO_BIG_SIZE);
+        const [width, height, file, mimeType] = getMediaFile(chatId, currentMessageId, PHOTO_BIG_SIZE);
 
         const fileId = file ? file.id : 0;
         let title = t('AttachPhoto');

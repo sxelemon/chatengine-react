@@ -23,6 +23,7 @@
 .edit-media-dialog-content {
     flex: 1 1 auto;
     display: flex;
+    flex-direction: column;
     position: relative;
     border-top-width: 1px;
     border-top-style: solid;
@@ -46,10 +47,6 @@
     white-space: pre-wrap;
     word-wrap: break-word;
     word-break: break-word;
-}
-
-[contenteditable='true']#edit-media-dialog-caption br {
-    display: none;
 }
 
 #edit-media-dialog-caption::before {

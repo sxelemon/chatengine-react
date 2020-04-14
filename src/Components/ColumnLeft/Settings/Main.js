@@ -12,6 +12,7 @@ import { IconButton } from '@material-ui/core';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ArrowBackIcon from '../../../Assets/Icons/Back';
+import CloseIcon from '../../../Assets/Icons/Close';
 import Chat from '../../Tile/Chat';
 import EditIcon from '../../../Assets/Icons/Edit';
 import ListItemText from '@material-ui/core/ListItemText';
@@ -20,25 +21,15 @@ import SettingsMenuButton from './SettingsMenuButton';
 import UnmuteIcon from '../../../Assets/Icons/Unmute';
 import DataIcon from '../../../Assets/Icons/Data';
 import LanguageIcon from '../../../Assets/Icons/Language';
-import PhotoIcon from '../../../Assets/Icons/SharedMedia';
-import ThemePicker from '../ThemePicker';
 import { setProfileMediaViewerContent } from '../../../Actions/Client';
 import ChatStore from '../../../Stores/ChatStore';
 import './Main.css';
 
 class Main extends React.Component {
-    constructor(props) {
-        super(props);
-
-        this.themePickerRef = React.createRef();
-    }
-
-    handleAppearance = () => {
-        this.themePickerRef.current.open();
-    };
 
     handleOpenViewer = () => {
         const { chatId } = this.props;
+        
         const chat = ChatStore.get(chatId);
         if (!chat) return;
         if (!chat.photo) return;
@@ -49,6 +40,7 @@ class Main extends React.Component {
     render() {
         const {
             chatId,
+            popup,
             t,
             onClose,
             onEditProfile,
@@ -66,7 +58,7 @@ class Main extends React.Component {
             <>
                 <div className='header-master'>
                     <IconButton className='header-left-button' onClick={onClose}>
-                        <ArrowBackIcon />
+                        { popup ? <CloseIcon/> : <ArrowBackIcon /> }
                     </IconButton>
                     <div className='header-status grow cursor-pointer'>
                         <span className='header-status-content'>{t('Settings')}</span>
@@ -113,13 +105,6 @@ class Main extends React.Component {
                         </ListItemIcon>
                         <ListItemText primary={t('Language')} />
                     </ListItem>
-                    <ListItem autoFocus={false} className='settings-list-item' button onClick={this.handleAppearance}>
-                        <ListItemIcon>
-                            <PhotoIcon />
-                        </ListItemIcon>
-                        <ListItemText primary={t('Appearance')} />
-                    </ListItem>
-                    <ThemePicker ref={this.themePickerRef} />
                 </div>
             </>
         );
@@ -127,7 +112,8 @@ class Main extends React.Component {
 }
 
 Main.propTypes = {
-    chatId: PropTypes.number.isRequired,
+    chatId: PropTypes.number,
+    popup: PropTypes.bool,
     onClose: PropTypes.func,
     onEditProfile: PropTypes.func,
     onGeneral: PropTypes.func,

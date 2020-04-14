@@ -10,6 +10,7 @@ import PropTypes from 'prop-types';
 import IconButton from '@material-ui/core/IconButton';
 import ListItem from '@material-ui/core/ListItem';
 import ArrowBackIcon from '../../Assets/Icons/Back';
+import CloseIcon from '../../Assets/Icons/Close';
 import User from '../Tile/User';
 import SearchInput from './Search/SearchInput';
 import VirtualizedList from '../Additional/VirtualizedList';
@@ -26,16 +27,13 @@ class UserListItem extends React.Component {
     shouldComponentUpdate(nextProps, nextState, nextContext) {
         const { userId, style } = this.props;
         if (nextProps.userId !== userId) {
-            // console.log('[vl] UserListItem.shouldUpdate true userId');
             return true;
         }
 
         if (nextProps.style.top !== style.top) {
-            // console.log('[vl] UserListItem.shouldUpdate true style');
             return true;
         }
 
-        // console.log('[vl] UserListItem.shouldUpdate false');
         return false;
     }
 
@@ -65,6 +63,15 @@ class Contacts extends React.Component {
 
         this.handleDebounceScroll = debounce(this.handleDebounceScroll, 100, false);
         this.handleThrottleScroll = throttle(this.handleThrottleScroll, 200, false);
+    }
+
+    componentDidMount() {
+        const { current } = this.searchInputRef;
+        if (current) {
+            setTimeout(() => current.focus(), 50);
+        }
+
+        this.loadContent();
     }
 
     handleScroll = event => {
@@ -100,15 +107,6 @@ class Contacts extends React.Component {
         }
     };
 
-    componentDidMount() {
-        const { current } = this.searchInputRef;
-        if (current) {
-            setTimeout(() => current.focus(), 50);
-        }
-
-        this.loadContent();
-    }
-
     async loadContent() {
         let contacts = CacheStore.contacts;
         if (!contacts) {
@@ -126,12 +124,6 @@ class Contacts extends React.Component {
             items: contacts
         });
     }
-
-    handleClose = () => {
-        TdLibController.clientUpdate({
-            '@type': 'clientUpdateCloseContacts'
-        });
-    };
 
     handleOpenUser = userId => {
         openUser(userId, false);
@@ -168,20 +160,24 @@ class Contacts extends React.Component {
         this.setState({ searchItems });
     };
 
+    handleClose = () => {
+        TdLibController.clientUpdate({
+            '@type': 'clientUpdateContacts',
+            open: false
+        });
+    };
+
     render() {
+        const { popup } = this.props;
         const { items, searchItems } = this.state;
 
         return (
             <>
                 <div className='header-master'>
                     <IconButton className='header-left-button' onClick={this.handleClose}>
-                        <ArrowBackIcon />
+                        { popup ? <CloseIcon/> : <ArrowBackIcon /> }
                     </IconButton>
-                    <SearchInput
-                        inputRef={this.searchInputRef}
-                        onChange={this.handleSearch}
-                        onClose={this.handleClose}
-                    />
+                    <SearchInput inputRef={this.searchInputRef} onChange={this.handleSearch} />
                 </div>
                 <div className='contacts-content'>
                     {items && (
@@ -212,6 +208,8 @@ class Contacts extends React.Component {
     }
 }
 
-Contacts.propTypes = {};
+Contacts.propTypes = {
+    popup: PropTypes.bool
+};
 
 export default Contacts;

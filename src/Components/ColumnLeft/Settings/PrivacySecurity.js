@@ -15,9 +15,12 @@ import ListItemIcon from '@material-ui/core/ListItemIcon';
 import ListItemText from '@material-ui/core/ListItemText';
 import ActiveSessions from './ActiveSessions';
 import ArrowBackIcon from '../../../Assets/Icons/Back';
+import BlockedUsers from './BlockedUsers';
 import DeviceIcon from '../../../Assets/Icons/Device';
 import RemoveMemberIcon from '../../../Assets/Icons/RemoveMember';
 import SidebarPage from '../SidebarPage';
+import SectionHeader from '../SectionHeader';
+import UserStore from '../../../Stores/UserStore';
 import TdLibController from '../../../Controllers/TdLibController';
 import './PrivacySecurity.css';
 
@@ -25,12 +28,48 @@ class PrivacySecurity extends React.Component {
     state = {
         sessions: null,
         users: null,
+        openBlockedUsers: false,
         openActiveSessions: false
     };
 
     componentDidMount() {
         this.loadContent();
+
+        UserStore.on('updateUserFullInfo', this.onUpdateUserFullInfo);
     }
+
+    componentWillUnmount() {
+        UserStore.off('updateUserFullInfo', this.onUpdateUserFullInfo);
+    }
+
+    onUpdateUserFullInfo = update => {
+        const { user_id, user_full_info } = update;
+        const { users } = this.state;
+        if (!users) return;
+
+        const { total_count, user_ids } = users;
+        const { is_blocked } = user_full_info;
+        const prevIsBlocked = user_ids.indexOf(user_id) !== -1;
+        if (is_blocked === prevIsBlocked) return;
+
+        if (is_blocked) {
+            this.setState({
+                users: {
+                    ...users,
+                    total_count: total_count + 1,
+                    user_ids: [user_id, ...user_ids]
+                }
+            });
+        } else {
+            this.setState({
+                users: {
+                    ...users,
+                    total_count: total_count - 1,
+                    user_ids: user_ids.filter(x => x !== user_id)
+                }
+            });
+        }
+    };
 
     async loadContent() {
         TdLibController.send({
@@ -43,17 +82,6 @@ class PrivacySecurity extends React.Component {
             limit: 100
         }).then(users => this.setState({ users }));
     }
-
-    handleBlockedUsers = () => {
-        const { users } = this.state;
-        if (!users) return;
-
-        TdLibController.clientUpdate({
-            '@type': 'clientUpdateBlockedUsersPage',
-            opened: true,
-            users
-        });
-    };
 
     openActiveSessions = () => {
         if (!this.state.sessions) return;
@@ -69,9 +97,23 @@ class PrivacySecurity extends React.Component {
         });
     };
 
+    openBlockedUsers = () => {
+        if (!this.state.users) return;
+
+        this.setState({
+            openBlockedUsers: true
+        });
+    };
+
+    closeBlockedUsers = () => {
+        this.setState({
+            openBlockedUsers: false
+        });
+    };
+
     render() {
         const { t, onClose } = this.props;
-        const { users, openActiveSessions, sessions } = this.state;
+        const { openBlockedUsers, users, openActiveSessions, sessions } = this.state;
 
         const sessionsCount =
             sessions && sessions.sessions.length > 0
@@ -98,12 +140,12 @@ class PrivacySecurity extends React.Component {
                     </div>
                 </div>
                 <div className='sidebar-page-content'>
-                    <div className='settings-section'>
+                    <div className='sidebar-page-section'>
                         <ListItem
                             className='settings-list-item2'
                             role={undefined}
                             button
-                            onClick={this.handleBlockedUsers}>
+                            onClick={this.openBlockedUsers}>
                             <ListItemIcon className='settings-list-item-icon'>
                                 <RemoveMemberIcon />
                             </ListItemIcon>
@@ -130,9 +172,9 @@ class PrivacySecurity extends React.Component {
                             />
                         </ListItem>
                     </div>
-                    <div className='settings-border' />
-                    <div className='settings-section'>
-                        <div className='settings-section-header'>{t('PrivacyTitle')}</div>
+                    <div className='sidebar-page-section-divider' />
+                    <div className='sidebar-page-section'>
+                        <SectionHeader>{t('PrivacyTitle')}</SectionHeader>
                         <ListItem className='settings-list-item2' role={undefined} button>
                             <ListItemText
                                 className='settings-list-item-text2'
@@ -170,8 +212,11 @@ class PrivacySecurity extends React.Component {
                         </ListItem>
                     </div>
                 </div>
-                <SidebarPage open={openActiveSessions}>
-                    <ActiveSessions sessions={sessions} onClose={this.closeActiveSessions} />
+                <SidebarPage open={openBlockedUsers} onClose={this.closeBlockedUsers}>
+                    <BlockedUsers users={users} />
+                </SidebarPage>
+                <SidebarPage open={openActiveSessions} onClose={this.closeActiveSessions}>
+                    <ActiveSessions sessions={sessions} />
                 </SidebarPage>
             </>
         );

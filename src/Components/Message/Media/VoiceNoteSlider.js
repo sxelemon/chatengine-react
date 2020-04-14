@@ -7,9 +7,11 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 import Slider from '@material-ui/core/Slider';
 import { PLAYER_PROGRESS_TIMEOUT_MS } from '../../../Constants';
 import PlayerStore from '../../../Stores/PlayerStore';
+import TdLibController from '../../../Controllers/TdLibController';
 import './VoiceNoteSlider.css';
 
 class VoiceNoteSlider extends React.Component {
@@ -94,12 +96,20 @@ class VoiceNoteSlider extends React.Component {
 
     onClientUpdateMediaTime = update => {
         const { chatId, messageId, duration } = this.props;
-        const { active } = this.state;
+        const { active, dragging } = this.state;
 
-        if (chatId === update.chatId && messageId === update.messageId) {
-            const playerDuration = update.duration >= 0 && update.duration < Infinity ? update.duration : duration;
-            const value = this.getValue(update.currentTime, playerDuration, active);
+        if (chatId !== update.chatId) return;
+        if (messageId !== update.messageId) return;
 
+        const playerDuration = update.duration >= 0 && update.duration < Infinity ? update.duration : duration;
+        const value = this.getValue(update.currentTime, playerDuration, active);
+
+        if (dragging) {
+            this.setState({
+                currentTime: update.currentTime,
+                duration: playerDuration
+            });
+        } else {
             this.setState({
                 currentTime: update.currentTime,
                 duration: playerDuration,
@@ -110,11 +120,14 @@ class VoiceNoteSlider extends React.Component {
 
     onClientUpdateMediaActive = update => {
         const { chatId, messageId, duration } = this.props;
-        const { active, currentTime } = this.state;
+        const { active, currentTime, dragging } = this.state;
 
         if (chatId === update.chatId && messageId === update.messageId) {
             const playerDuration = update.duration >= 0 && update.duration < Infinity ? update.duration : duration;
-            const value = this.getValue(active ? currentTime : 0, playerDuration, true);
+            let value = this.state.value;
+            if (!dragging) {
+                value = this.getValue(active ? currentTime : 0, playerDuration, true);
+            }
 
             this.setState({
                 active: true,
@@ -130,21 +143,70 @@ class VoiceNoteSlider extends React.Component {
         return active ? currentTime / duration : 0;
     };
 
+    handleMouseDown = event => {
+        event.stopPropagation();
+
+        this.setState({
+            dragging: true
+        });
+    };
+
+    handleChangeCommitted = () => {
+        const { chatId, messageId } = this.props;
+        const { value, active } = this.state;
+        if (!active) return;
+
+        TdLibController.clientUpdate({
+            '@type': 'clientUpdateMediaSeek',
+            chatId,
+            messageId,
+            value
+        });
+
+        this.setState({
+            dragging: false
+        });
+    };
+
+    handleChange = (event, value) => {
+        const { chatId, messageId } = this.props;
+        const { active, dragging } = this.state;
+        if (!active) return;
+
+        if (dragging) {
+            TdLibController.clientUpdate({
+                '@type': 'clientUpdateMediaSeeking',
+                chatId,
+                messageId,
+                value
+            });
+        }
+
+        this.setState({
+            value
+        });
+    };
+
     render() {
+        const { className, style } = this.props;
         const { value } = this.state;
 
         return (
-            <div className='voice-note-slider'>
+            <div className={classNames('voice-note-slider', className)} style={style}>
                 <Slider
                     className='voice-note-slider-component'
                     classes={{
                         track: 'voice-note-slider-track',
-                        // thumbWrapper: 'voice-note-slider-thumb-wrapper',
-                        thumb: 'voice-note-slider-thumb'
+                        thumb: 'voice-note-slider-thumb',
+                        active: 'voice-note-slider-active'
                     }}
                     min={0}
                     max={1}
+                    step={0.01}
                     value={value}
+                    onChange={this.handleChange}
+                    onChangeCommitted={this.handleChangeCommitted}
+                    onMouseDown={this.handleMouseDown}
                 />
             </div>
         );
@@ -152,8 +214,8 @@ class VoiceNoteSlider extends React.Component {
 }
 
 VoiceNoteSlider.propTypes = {
-    chatId: PropTypes.number.isRequired,
-    messageId: PropTypes.number.isRequired,
+    chatId: PropTypes.number,
+    messageId: PropTypes.number,
     duration: PropTypes.number.isRequired
 };
 

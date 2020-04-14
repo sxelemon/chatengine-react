@@ -6,7 +6,7 @@
  */
 
 import EventEmitter from './EventEmitter';
-import { isMessageMuted } from '../Utils/Message';
+import { isMessageMuted } from '../Utils/Store';
 import { APP_NAME, NOTIFICATION_AUDIO_DELAY_MS } from '../Constants';
 import ChatStore from './ChatStore';
 import MessageStore from './MessageStore';
@@ -167,8 +167,12 @@ class NotificationStore extends EventEmitter {
                         const now = new Date();
                         if (now > this.nextSoundAt) {
                             // console.log('[ns] audio play');
-                            const audio = new Audio('sound_a.mp3');
-                            audio.play();
+                            try {
+                                const audio = new Audio('sound_a.mp3');
+                                audio.play();
+                            } catch {
+
+                            }
 
                             const nextSoundAt = new Date();
                             nextSoundAt.setMilliseconds(nextSoundAt.getMilliseconds() + NOTIFICATION_AUDIO_DELAY_MS);

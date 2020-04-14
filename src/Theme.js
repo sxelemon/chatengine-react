@@ -12,6 +12,7 @@ import { ThemeProvider as MuiThemeProvider } from '@material-ui/core/styles';
 import { StylesProvider } from '@material-ui/core/styles';
 import { getDisplayName } from './Utils/HOC';
 import ApplicationStore from './Stores/ApplicationStore';
+import { getBadgeSelectedColor } from './Utils/Color';
 
 function updateLightTheme(theme) {
     // const root = document.querySelector(':root');
@@ -25,7 +26,7 @@ function updateLightTheme(theme) {
     style.setProperty('--error', '#E53935');
 
     style.setProperty('--tile-size', '54px');
-    style.setProperty('--user-tile-size', '48px');
+    style.setProperty('--tile-size-normal', '48px');
     style.setProperty('--tile-size-extra-small', '16px');
     style.setProperty('--tile-size-small', '33px');
     style.setProperty('--tile-size-big', '120px');
@@ -38,13 +39,17 @@ function updateLightTheme(theme) {
     style.setProperty('--color-accent-light', theme.palette.primary.light);
     style.setProperty('--color-grey700', theme.palette.grey[700]);
     style.setProperty('--color-grey', '#9AA7B2');
-    style.setProperty('--color-search-input', '#f4f4f5');
+    style.setProperty('--color-hover', '#70757914');
+
+    style.setProperty('--search-input-background', '#f4f4f5');
+    style.setProperty('--search-input-icon', '#9aa7b2');
 
     style.setProperty('--header-color', '#000000');
     style.setProperty('--header-subtle-color', '#707579');
 
     style.setProperty('--badge-unmuted', '#4DCD5E');
     style.setProperty('--badge-muted', '#C4C9CC');
+    style.setProperty('--badge-item-selected', getBadgeSelectedColor(theme.palette.primary.main));
 
     style.setProperty('--online-indicator', '#0AC630');
 
@@ -105,7 +110,7 @@ function updateDarkTheme(theme) {
     style.setProperty('--error', '#E53935');
 
     style.setProperty('--tile-size', '54px');
-    style.setProperty('--user-tile-size', '48px');
+    style.setProperty('--tile-size-normal', '48px');
     style.setProperty('--tile-size-extra-small', '16px');
     style.setProperty('--tile-size-small', '33px');
     style.setProperty('--tile-size-big', '120px');
@@ -118,13 +123,17 @@ function updateDarkTheme(theme) {
     style.setProperty('--color-accent-light', theme.palette.primary.light);
     style.setProperty('--color-grey700', theme.palette.grey[700]);
     style.setProperty('--color-grey', '#9AA7B2');
-    style.setProperty('--color-search-input', '#424242');
+    style.setProperty('--color-hover', 'rgba(112, 117, 121, 0.15)');
+
+    style.setProperty('--search-input-background', '#424242');
+    style.setProperty('--search-input-icon', '#fff');
 
     style.setProperty('--header-color', '#ffffff');
     style.setProperty('--header-subtle-color', theme.palette.text.secondary);
 
     style.setProperty('--badge-unmuted', '#4DCD5E');
     style.setProperty('--badge-muted', 'rgba(255, 255, 255, 0.5)');
+    style.setProperty('--badge-item-selected', getBadgeSelectedColor(theme.palette.primary.main));
 
     style.setProperty('--online-indicator', '#0AC630');
 

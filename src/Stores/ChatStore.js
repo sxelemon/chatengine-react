@@ -27,6 +27,7 @@ class ChatStore extends EventEmitter {
         this.counters = new Map();
         this.skippedUpdates = [];
         this.chatList = new Map();
+        this.wallpaper = null;
     };
 
     loadClientData = () => {
@@ -379,19 +380,14 @@ class ChatStore extends EventEmitter {
 
     onClientUpdate = update => {
         switch (update['@type']) {
+            case 'clientUpdateChatBackground': {
+                const { wallpaper } = update;
+                this.wallpaper = wallpaper;
+
+                this.emitUpdate(update);
+                break;
+            }
             case 'clientUpdateClearHistory': {
-                this.emitUpdate(update);
-                break;
-            }
-            case 'clientUpdateCloseArchive': {
-                this.emitUpdate(update);
-                break;
-            }
-            case 'clientUpdateCloseContacts': {
-                this.emitUpdate(update);
-                break;
-            }
-            case 'clientUpdateCloseSettings': {
                 this.emitUpdate(update);
                 break;
             }
@@ -399,7 +395,7 @@ class ChatStore extends EventEmitter {
                 this.emitUpdate(update);
                 break;
             }
-            case 'clientUpdateOpenArchive': {
+            case 'clientUpdateArchive': {
                 this.emitUpdate(update);
                 break;
             }
@@ -407,11 +403,11 @@ class ChatStore extends EventEmitter {
                 this.emitUpdate(update);
                 break;
             }
-            case 'clientUpdateOpenContacts': {
+            case 'clientUpdateContacts': {
                 this.emitUpdate(update);
                 break;
             }
-            case 'clientUpdateOpenSettings': {
+            case 'clientUpdateSettings': {
                 this.emitUpdate(update);
                 break;
             }
