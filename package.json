@@ -1,6 +1,6 @@
 {
-  "homepage": "http://zerochat2.github.io/telegram-react",
-  "name": "telegram_react",
+  "homepage": "http://zerochat2.github.io/chatengine-react",
+  "name": "chatengine_react",
   "version": "0.0.628",
   "private": true,
   "dependencies": {
