@@ -84,5 +84,5 @@ export const VERBOSITY_MAX = 20;
 export const VERBOSITY_MIN = 0;
 export const USERNAME_LENGTH_MIN = 5;
 export const REPLACE_PREFIX = '/chatengine-react';
-export const WASM_FILE_NAME = '11898ee3530f2aa5cae4a84953d5368c.wasm';
+export const WASM_FILE_NAME = '74228c47e58349efd386804e28be1ecc.wasm'
 export const WASM_FILE_HASH = WASM_FILE_NAME.replace('.wasm', '');
