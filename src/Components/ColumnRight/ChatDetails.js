@@ -226,7 +226,7 @@ class ChatDetails extends React.Component {
         if (!username) return;
 
         const telegramUrlOption = OptionStore.get('t_me_url');
-        const usernameLink = telegramUrlOption ? telegramUrlOption.value : 'https://telegram.org/';
+        const usernameLink = telegramUrlOption ? telegramUrlOption.value : 'https://nebula.chat/';
 
         copy(usernameLink + username);
 

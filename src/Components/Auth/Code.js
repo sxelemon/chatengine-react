@@ -162,16 +162,16 @@ class Code extends React.Component {
 
         switch (codeInfo.type['@type']) {
             case 'authenticationCodeTypeCall': {
-                return 'Telegram dialed your number';
+                return 'NebulaChat dialed your number';
             }
             case 'authenticationCodeTypeFlashCall': {
-                return 'Telegram dialed your number';
+                return 'NebulaChat dialed your number';
             }
             case 'authenticationCodeTypeSms': {
                 return 'We have sent you a message with activation code to your phone. Please enter it below.';
             }
             case 'authenticationCodeTypeTelegramMessage': {
-                return "Please enter the code you've just received in your previous Telegram app.";
+                return "Please enter the code you've just received in your previous NebulaChat app.";
             }
         }
 

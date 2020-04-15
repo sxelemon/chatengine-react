@@ -20,7 +20,7 @@ self.addEventListener('push', function(event) {
         obj = event.data.text();
     }
 
-    let title = obj.title || 'Telegram';
+    let title = obj.title || 'NebulaChat';
     let body = obj.description || obj;
     const options = {
         body: body,

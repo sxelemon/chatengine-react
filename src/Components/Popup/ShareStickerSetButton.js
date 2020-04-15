@@ -68,7 +68,7 @@ class ShareStickerSetButton extends React.Component {
 
         const telegramUrlOption = OptionStore.get('t_me_url');
 
-        return (telegramUrlOption ? telegramUrlOption.value : 'https://telegram.org/') + 'addstickers/' + name;
+        return (telegramUrlOption ? telegramUrlOption.value : 'https://nebula.chat/') + 'addstickers/' + name;
     };
 
     handleScheduledAction = (key, message, action) => {

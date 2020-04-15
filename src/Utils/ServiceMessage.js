@@ -350,7 +350,7 @@ function getServiceMessageContent(message, openUser = false) {
             return (
                 <>
                     <MessageAuthor userId={sender_user_id} openUser={openUser} />
-                    {' just joined Telegram'}
+                    {' just joined NebulaChat'}
                 </>
             );
         }
@@ -391,7 +391,7 @@ function getServiceMessageContent(message, openUser = false) {
             );
         }
         case 'messagePassportDataReceived': {
-            return 'Telegram Passport data received';
+            return 'NebulaChat Passport data received';
         }
         case 'messagePassportDataSent': {
             const chat = ChatStore.get(message.chat_id);

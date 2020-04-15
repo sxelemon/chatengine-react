@@ -46,7 +46,7 @@ i18n.use(initReactI18next).init({
                 YourAccountProtectedWithPassword: 'Your account is protected with an additional password.',
                 DeletedMessage: 'Deleted message',
                 YourPhone: 'Your Phone',
-                SignInToTelegram: 'Sign in to Telegram',
+                SignInToTelegram: 'Sign in to NebulaChat',
                 PhoneNumber: 'Phone Number',
                 Country: 'Country',
                 KeepMeSignedIn: 'Keep me signed in',
@@ -89,7 +89,7 @@ i18n.use(initReactI18next).init({
                 Custom: 'Custom'
             },
             translation: {
-                AppName: 'Telegram',
+                AppName: 'NebulaChat',
                 Connecting: 'Connecting...',
                 ConnectingToProxy: 'Connecting to proxy...',
                 Loading: 'Loading...',
@@ -127,7 +127,7 @@ i18n.use(initReactI18next).init({
                 YourAccountProtectedWithPassword: 'Ваш аккаунт защищен дополнительным паролем.',
                 DeletedMessage: 'Удаленное сообщение',
                 YourPhone: 'Ваш телефон',
-                SignInToTelegram: 'Вход в Telegram',
+                SignInToTelegram: 'Вход в NebulaChat',
                 PhoneNumber: 'Телефонный номер',
                 Country: 'Страна',
                 KeepMeSignedIn: 'Сохранить авторизацию',
@@ -170,7 +170,7 @@ i18n.use(initReactI18next).init({
                 Custom: 'Пользовательские'
             },
             translation: {
-                AppName: 'Telegram',
+                AppName: 'NebulaChat',
                 Connecting: 'Соединение...',
                 ConnectingToProxy: 'Подключение к прокси...',
                 Loading: 'Загрузка...',

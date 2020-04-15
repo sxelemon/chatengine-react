@@ -13,11 +13,11 @@ import './NativeApp.css';
 class NativeApp extends React.Component {
     static handleInstall = () => {
         if (isIOS()) {
-            window.location.href = 'https://telegram.org/dl/ios';
+            window.location.href = 'https://neula.chat/dl/ios';
         } else if (isWindowsPhone()) {
-            window.location.href = 'https://telegram.org/dl/wp';
+            window.location.href = 'https://neula.chat/dl/wp';
         } else {
-            window.location.href = 'https://telegram.org/dl/android';
+            window.location.href = 'https://neula.chat/dl/android';
         }
     };
 

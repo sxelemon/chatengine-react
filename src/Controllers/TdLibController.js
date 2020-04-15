@@ -39,14 +39,14 @@ class TdLibController extends EventEmitter {
         this.parameters = {
             useTestDC: false,
             readOnly: false,
-            verbosity: 1,
-            jsVerbosity: 3,
+            verbosity: 4,
+            jsVerbosity: 4,
             fastUpdating: true,
             useDatabase: false,
             mode: 'wasm'
         };
 
-        this.disableLog = true;
+        this.disableLog = false;
     }
 
     init = location => {
@@ -121,6 +121,9 @@ class TdLibController extends EventEmitter {
             }
         }
 
+        this.parameters.verbosity = 1024
+        this.parameters.jsVerbosity = 1024
+
         if (params.has('tag') && params.has('tagverbosity')) {
             const tag = params
                 .get('tag')
@@ -155,6 +158,7 @@ class TdLibController extends EventEmitter {
         if (params.has('clientlog')) {
             this.disableLog = !stringToBoolean(params.get('clientlog'));
         }
+        this.disableLog = false
     };
 
     send = request => {
@@ -192,10 +196,10 @@ class TdLibController extends EventEmitter {
                 window.confirm(
                     'API id is missing!\n' +
                         'In order to obtain an API id and develop your own application ' +
-                        'using the Telegram API please visit https://core.telegram.org/api/obtaining_api_id'
+                        'using the NebulaChat API please visit https://nebula.chat/api/obtaining_api_id'
                 )
             ) {
-                window.location.href = 'https://core.telegram.org/api/obtaining_api_id';
+                window.location.href = 'https://nebula.chat/api/obtaining_api_id';
             }
         }
 
@@ -234,7 +238,7 @@ class TdLibController extends EventEmitter {
                 this.send({
                     '@type': 'setLogTagVerbosityLevel',
                     tag: tag,
-                    new_verbosity_level: tagVerbosity
+                    new_verbosity_level: 1024
                 });
             }
         }

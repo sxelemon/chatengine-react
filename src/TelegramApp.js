@@ -40,7 +40,7 @@ class TelegramApp extends Component {
     constructor(props) {
         super(props);
 
-        console.log(`Start Telegram Web ${packageJson.version}`);
+        console.log(`Start NebulaChat Web ${packageJson.version}`);
 
         this.state = {
             prevAuthorizationState: AuthorizationStore.current,
@@ -247,7 +247,7 @@ class TelegramApp extends Component {
                     onClose={this.handleRefresh}
                     aria-labelledby='fatal-error-dialog-title'
                     aria-describedby='fatal-error-dialog-description'>
-                    <DialogTitle id='fatal-error-dialog-title'>Telegram</DialogTitle>
+                    <DialogTitle id='fatal-error-dialog-title'>NebulaChat</DialogTitle>
                     <DialogContent>
                         <DialogContentText id='fatal-error-dialog-description'>
                             Oops! Something went wrong. We need to refresh this page.

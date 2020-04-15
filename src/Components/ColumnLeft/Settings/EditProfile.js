@@ -217,7 +217,7 @@ class EditProfile extends React.Component {
                             onChange={this.handleUsernameChange}
                         />
                         <div className='edit-profile-hint'>
-                            You can choose a username on Telegram. If you do, other people will be able to find you by
+                            You can choose a username on NebulaChat. If you do, other people will be able to find you by
                             this username and contact you without knowing your phone number. You can use a-z, 0-9 and
                             underscores. Minimum length is 5 characters.
                         </div>

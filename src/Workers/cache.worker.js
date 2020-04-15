@@ -23,14 +23,14 @@ self.addEventListener('message', async ({ data }) => {
 });
 
 async function loadCache(handlerKey, key) {
-    const store = localforage.createInstance({ name: 'telegram' });
+    const store = localforage.createInstance({ name: 'chatengine' });
     const cache = await store.getItem(key);
 
     postMessage({ handlerKey, cache });
 }
 
 async function saveCache(handlerKey, key, cache) {
-    const store = localforage.createInstance({ name: 'telegram' });
+    const store = localforage.createInstance({ name: 'chatengine' });
     store.setItem(key, cache);
 
     postMessage({ handlerKey });

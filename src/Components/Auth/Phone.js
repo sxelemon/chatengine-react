@@ -409,7 +409,7 @@ class Phone extends React.Component {
             }
         }
 
-        const title = connecting ? cleanProgressStatus(t('Connecting')) : t('SignInToTelegram');
+        const title = connecting ? cleanProgressStatus(t('Connecting')) : t('SignInToNebulaChat');
         const nextLanguage = suggestedLanguage === i18n.language ? LocalizationStore.fallbackLng : suggestedLanguage;
 
         return (
