@@ -228,7 +228,7 @@ module.exports = _slicedToArray;
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = function() {
-  return new Worker(__webpack_require__.p + "148e5a1392890b034973.worker.js");
+  return new Worker(__webpack_require__.p + "88fd5af3bb5a382bbe18.worker.js");
 };
 
 /***/ }),
@@ -2795,7 +2795,7 @@ function () {
       var _this5 = this;
 
       this.idb = new Promise(function (resolve, reject) {
-        var request = window.indexedDB.open(_this5.instanceName);
+        var request = indexedDB.open(_this5.instanceName);
 
         request.onsuccess = function () {
           return resolve(request.result);
