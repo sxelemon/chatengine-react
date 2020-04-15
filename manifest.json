@@ -1,6 +1,6 @@
 {
   "name": "NebulaChat",
-  "description": "NebulaChat Web App.\nMore info & source code here: https://github.com/evgeny-nadymov/telegram-react",
+  "description": "NebulaChat Web App.\nMore info & source code here: https://github.com/zerochat2/chatengine-react",
   "short_name": "NebulaChat",
   "display": "standalone",
   "theme_color": "#000000",
@@ -50,8 +50,8 @@
       "sizes": "512x512"
     },
     {
-      "src": "img/icons/icon.png",
-      "type": "image/png",
+      "src": "img/icons/icon.svg",
+      "type": "image/svg",
       "sizes": "512x512"
     }
   ],
