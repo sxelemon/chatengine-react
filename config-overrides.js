@@ -28,6 +28,7 @@ module.exports = override(
         output: {
             ...config.output,
             globalObject: 'this',
+            //publicPath: '/chatengine-react'
         },
     }),
     config => addWebpackBundleAnalyzer(config,{
@@ -35,7 +36,7 @@ module.exports = override(
         // reportFilename: 'report.html',
         openAnalyzer: true,
         generateStatsFile: true,
-        statsFilename: 'bundle-stats.json'
+        statsFilename: 'bundle-stats.json'        
     }),
     addWebpackModuleRule({
         test: /\.worker\.js$/,
